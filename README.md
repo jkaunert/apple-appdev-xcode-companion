@@ -20,7 +20,8 @@ CodingAssistant Codex home without changing Xcode's active Codex agent.
   window and is not modified by companion development
 
 See [source provenance](docs/SOURCE_PROVENANCE.md) for the exact extraction
-boundary.
+boundary and [compatibility contract](docs/COMPATIBILITY.md) for the pinned
+plugin/profile pairing.
 
 ## Package shape
 

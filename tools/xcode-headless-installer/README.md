@@ -67,7 +67,7 @@ After the DMG passes Gatekeeper, run the embedded installer explicitly:
 The install target is:
 
 ```text
-~/Library/Developer/Xcode/CodingAssistant/codex/plugins/cache/LocalAppleWorkflow/apple-appdev-workflow/<version>
+~/Library/Developer/Xcode/CodingAssistant/codex/plugins/cache/apple-developer-tools/apple-appdev-workflow/<version>
 ```
 
 If that same version already exists, the installer moves it to Xcode Codex

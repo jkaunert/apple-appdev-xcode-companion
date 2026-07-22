@@ -21,6 +21,7 @@ PACKAGE_SCRIPT = (
 )
 PLUGIN_NAME = "apple-appdev-workflow"
 PLUGIN_VERSION = "0.2.0"
+PLUGIN_SOURCE = "apple-developer-tools"
 REQUIRED_PROFILE_FILES = (
     "hooks/hooks.json",
     "hooks/apple_router.mjs",
@@ -104,9 +105,17 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             xcode_home
             / "plugins"
             / "cache"
-            / "LocalAppleWorkflow"
+            / PLUGIN_SOURCE
             / PLUGIN_NAME
             / PLUGIN_VERSION
+        )
+
+    def test_help_names_public_plugin_source_as_default(self) -> None:
+        result = self.run_installer("--help")
+
+        self.assertIn(
+            "Cache namespace. Defaults to apple-developer-tools.",
+            result.stdout,
         )
 
     def test_plugin_profile_dry_run_never_mutates_xcode_home(self) -> None:

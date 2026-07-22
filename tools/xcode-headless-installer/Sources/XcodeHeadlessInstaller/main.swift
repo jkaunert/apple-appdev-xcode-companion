@@ -17,7 +17,7 @@ struct Options {
     var agentsRoot: URL?
     var payloadRoot: URL?
     var pluginVersion: String?
-    var pluginSource = "LocalAppleWorkflow"
+    var pluginSource = "apple-developer-tools"
     var pluginName = "apple-appdev-workflow"
     var xcodeCodexHome: URL?
     var pluginPayloadRoot: URL?
@@ -49,7 +49,7 @@ func usage() -> String {
       --restore-plugin-profile PATH
                                Restore a backup created by a prior profile install.
       --plugin-version VALUE   Payload version under XcodePluginProfile/<plugin>.
-      --plugin-source VALUE    Cache namespace. Defaults to LocalAppleWorkflow.
+      --plugin-source VALUE    Cache namespace. Defaults to apple-developer-tools.
       --plugin-name VALUE      Plugin name. Defaults to apple-appdev-workflow.
       --xcode-codex-home PATH  Defaults to ~/Library/Developer/Xcode/CodingAssistant/codex.
       --plugin-payload-root PATH
