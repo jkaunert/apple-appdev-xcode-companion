@@ -343,6 +343,16 @@ if [[ -z "$OUTPUT_DMG" ]]; then
   OUTPUT_DMG="$OUTPUT_DIR/${BUNDLE_NAME}-${PACKAGE_SUFFIX}.dmg"
 fi
 
+SOURCE_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || true)"
+SOURCE_DIRTY=false
+if [[ -n "$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null || true)" ]]; then
+  SOURCE_DIRTY=true
+fi
+if [[ "$RELEASE_MODE" == "1" && ( -z "$SOURCE_COMMIT" || "$SOURCE_DIRTY" == "true" ) ]]; then
+  echo "error: --release requires a clean git checkout with a resolvable source commit" >&2
+  exit 1
+fi
+
 APP_PATH="$OUTPUT_DIR/$BUNDLE_NAME.app"
 STAGING_DIR="$OUTPUT_DIR/dmg-root"
 CONTENTS_DIR="$APP_PATH/Contents"
@@ -367,6 +377,8 @@ fi
 
 echo "Xcode-headless installer package plan"
 echo "  repo_root: $REPO_ROOT"
+echo "  source_commit: $SOURCE_COMMIT"
+echo "  source_dirty: $SOURCE_DIRTY"
 if [[ -n "$PLUGIN_PROFILE" ]]; then
   echo "  plugin_profile: $PLUGIN_PROFILE"
   echo "  plugin_name: $PLUGIN_NAME"
@@ -670,6 +682,8 @@ cat > "$PACKAGE_MANIFEST" <<EOF
 {
   "schema_version": 1,
   "created_at": "$(timestamp)",
+  "source_commit": "$(json_escape "$SOURCE_COMMIT")",
+  "source_dirty": $SOURCE_DIRTY,
   "bundle_id": "$(json_escape "$BUNDLE_ID")",
   "app_version": "$(json_escape "$APP_VERSION")",
   "app_build": "$(json_escape "$APP_BUILD")",

@@ -403,6 +403,8 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             self.assertIn("validate --install-plugin-profile", result.stdout)
+            self.assertIn("source_commit:", result.stdout)
+            self.assertIn("source_dirty:", result.stdout)
             self.assertNotIn("copy runtime payload", result.stdout)
             self.assertFalse(output_dir.exists())
 

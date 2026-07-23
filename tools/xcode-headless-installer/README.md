@@ -51,9 +51,11 @@ tools/xcode-headless-installer/scripts/package_dmg.sh \
 
 `--notarize` is rejected unless `--release` is present. A successful package
 run emits a sidecar JSON manifest with the final DMG SHA-256, installer-binary
-SHA-256, signing mode, notarization status, plugin manifest hash, and routing
-core hash. A notarized run also keeps notarytool's JSON result beside the DMG
-and records its accepted submission ID in the sidecar manifest.
+SHA-256, exact source commit, clean/dirty state, signing mode, notarization
+status, plugin manifest hash, and routing core hash. Developer ID release
+packaging refuses a dirty or non-git source checkout. A notarized run also
+keeps notarytool's JSON result beside the DMG and records its accepted
+submission ID in the sidecar manifest.
 
 ## Install Or Roll Back The Plugin Profile
 
