@@ -1,5 +1,6 @@
 import Foundation
 import Darwin
+import AppKit
 
 struct InstallerError: Error, CustomStringConvertible {
     let description: String
@@ -973,7 +974,8 @@ func installAgent(options: Options) throws {
     }
 }
 
-func installPackagedPluginProfile(options: Options) throws {
+@discardableResult
+func installPackagedPluginProfile(options: Options) throws -> URL? {
     let source = try validatePathComponent(options.pluginSource, label: "plugin source")
     let pluginName = try validatePathComponent(options.pluginName, label: "plugin name")
     let xcodeCodexHome = options.xcodeCodexHome ?? defaultXcodeCodexHome()
@@ -1009,7 +1011,7 @@ func installPackagedPluginProfile(options: Options) throws {
     describe("plugin_version=\(version)")
     describe("destination=\(destination.path)")
     describe("dry_run=\(options.dryRun)")
-    try installPluginProfile(
+    return try installPluginProfile(
         from: payload,
         to: destination,
         quarantineRoot: quarantineRoot,
@@ -1020,9 +1022,108 @@ func installPackagedPluginProfile(options: Options) throws {
     )
 }
 
-func main() -> Int32 {
+func copyToPasteboard(_ value: String) {
+    let pasteboard = NSPasteboard.general
+    pasteboard.clearContents()
+    pasteboard.setString(value, forType: .string)
+}
+
+func presentAlert(
+    message: String,
+    information: String,
+    style: NSAlert.Style,
+    primaryButton: String,
+    secondaryButton: String? = nil
+) -> NSApplication.ModalResponse {
+    let alert = NSAlert()
+    alert.messageText = message
+    alert.informativeText = information
+    alert.alertStyle = style
+    alert.addButton(withTitle: primaryButton)
+    if let secondaryButton {
+        alert.addButton(withTitle: secondaryButton)
+        if secondaryButton == "Cancel" {
+            alert.buttons[1].keyEquivalent = "\u{1b}"
+        }
+    }
+    alert.buttons[0].keyEquivalent = "\r"
+    return alert.runModal()
+}
+
+func runInteractiveInstaller() -> Int32 {
+    let application = NSApplication.shared
+    application.setActivationPolicy(.regular)
+    application.finishLaunching()
+    application.activate(ignoringOtherApps: true)
+
+    let confirmation = presentAlert(
+        message: "Install Apple AppDev Workflow for Xcode?",
+        information: """
+        Quit Xcode before continuing.
+
+        This installs and enables the xcode-headless plugin profile in Xcode's separate Codex home. It does not replace Xcode's Codex agent or pre-trust the UserPromptSubmit hook.
+        """,
+        style: .informational,
+        primaryButton: "Install",
+        secondaryButton: "Cancel"
+    )
+    guard confirmation == .alertFirstButtonReturn else {
+        return 0
+    }
+
     do {
-        let options = try parseArguments(Array(CommandLine.arguments.dropFirst()))
+        var options = Options()
+        options.installPluginProfile = true
+        let backup = try installPackagedPluginProfile(options: options)
+        let backupPath = backup?.path ?? "No prior state required a rollback backup."
+        let completion = presentAlert(
+            message: "Installation complete",
+            information: """
+            Apple AppDev Workflow is enabled for Xcode. Xcode's active Codex agent was not changed.
+
+            Before opening Xcode, review and trust the UserPromptSubmit hook with stock Codex.
+
+            Rollback backup:
+            \(backupPath)
+            """,
+            style: .informational,
+            primaryButton: "Done",
+            secondaryButton: backup == nil ? nil : "Copy Rollback Path"
+        )
+        if completion == .alertSecondButtonReturn, let backup {
+            copyToPasteboard(backup.path)
+            _ = presentAlert(
+                message: "Rollback path copied",
+                information: "Keep the installer DMG if you may need to restore this backup later.",
+                style: .informational,
+                primaryButton: "Done"
+            )
+        }
+        return 0
+    } catch {
+        let errorMessage = String(describing: error)
+        let failure = presentAlert(
+            message: "Installation failed",
+            information: errorMessage,
+            style: .critical,
+            primaryButton: "OK",
+            secondaryButton: "Copy Error"
+        )
+        if failure == .alertSecondButtonReturn {
+            copyToPasteboard(errorMessage)
+        }
+        return 1
+    }
+}
+
+func main() -> Int32 {
+    let arguments = Array(CommandLine.arguments.dropFirst())
+    if arguments.isEmpty {
+        return runInteractiveInstaller()
+    }
+
+    do {
+        let options = try parseArguments(arguments)
         let modeCount = [
             options.installAgent,
             options.installPluginProfile,
@@ -1039,7 +1140,7 @@ func main() -> Int32 {
         if options.installAgent {
             try installAgent(options: options)
         } else if options.installPluginProfile {
-            try installPackagedPluginProfile(options: options)
+            _ = try installPackagedPluginProfile(options: options)
         } else if let backup = options.restorePluginBackup {
             let source = try validatePathComponent(options.pluginSource, label: "plugin source")
             let pluginName = try validatePathComponent(options.pluginName, label: "plugin name")

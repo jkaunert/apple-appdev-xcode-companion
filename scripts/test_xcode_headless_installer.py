@@ -122,6 +122,18 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             result.stdout,
         )
 
+    def test_packaged_app_has_a_native_double_click_install_flow(self) -> None:
+        source = SOURCE.read_text()
+
+        self.assertIn("import AppKit", source)
+        self.assertIn("if arguments.isEmpty", source)
+        self.assertIn("return runInteractiveInstaller()", source)
+        self.assertIn(
+            'message: "Install Apple AppDev Workflow for Xcode?"',
+            source,
+        )
+        self.assertIn("try installPackagedPluginProfile(options: options)", source)
+
     def test_plugin_profile_dry_run_never_mutates_xcode_home(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

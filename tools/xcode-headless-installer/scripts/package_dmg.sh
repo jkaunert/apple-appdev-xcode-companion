@@ -16,6 +16,7 @@ BUNDLE_ID="com.joshuakaunert.apple-appdev-workflow.xcode-headless-installer"
 BUNDLE_NAME="AppleAppDevXcodeHeadlessInstaller"
 DISPLAY_NAME="Apple AppDev Xcode Headless Installer"
 APP_EXECUTABLE="xcode-headless-installer"
+APP_ICON_NAME="AppleAppDevXcodeHeadlessInstaller.icns"
 APP_VERSION=""
 APP_BUILD="1"
 MIN_SYSTEM_VERSION="15.0"
@@ -262,6 +263,7 @@ fi
 
 PLUGIN_MANIFEST_SHA256=""
 PLUGIN_CORE_SHA256=""
+APP_ICON_SOURCE=""
 if [[ -n "$PLUGIN_PROFILE" ]]; then
   [[ -d "$PLUGIN_PROFILE" ]] || {
     echo "error: --plugin-profile must be a directory: $PLUGIN_PROFILE" >&2
@@ -316,6 +318,11 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
       printf '%s  %s\n' "$file_hash" "$relative_path"
     done
   } | shasum -a 256 | awk '{print $1}')"
+  if [[ -f "$PLUGIN_PROFILE/assets/apple-appdev-workflow-logo.png" ]]; then
+    APP_ICON_SOURCE="$PLUGIN_PROFILE/assets/apple-appdev-workflow-logo.png"
+  elif [[ -f "$PLUGIN_PROFILE/assets/apple-appdev-workflow-logo-512.png" ]]; then
+    APP_ICON_SOURCE="$PLUGIN_PROFILE/assets/apple-appdev-workflow-logo-512.png"
+  fi
 fi
 
 if [[ -z "$APP_VERSION" ]]; then
@@ -367,6 +374,9 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
   echo "  plugin_manifest_sha256: $PLUGIN_MANIFEST_SHA256"
   echo "  plugin_core_sha256: $PLUGIN_CORE_SHA256"
   echo "  plugin_payload_destination: $PLUGIN_PAYLOAD_DIR"
+  if [[ -n "$APP_ICON_SOURCE" ]]; then
+    echo "  app_icon_source: $APP_ICON_SOURCE"
+  fi
 fi
 if [[ -n "$AGENT_RUNTIME" ]]; then
   echo "  agent_runtime: $AGENT_RUNTIME"
@@ -391,6 +401,9 @@ if [[ "$DRY_RUN" == "1" ]]; then
   echo "dry-run: swiftc -O -o \"$BUILD_BIN\" \"$TOOL_DIR/Sources/XcodeHeadlessInstaller/main.swift\""
   if [[ -n "$PLUGIN_PROFILE" ]]; then
     echo "dry-run: copy xcode-headless plugin profile into \"$PLUGIN_PAYLOAD_DIR\""
+    if [[ -n "$APP_ICON_SOURCE" ]]; then
+      echo "dry-run: render branded installer icon into \"$RESOURCES_DIR/$APP_ICON_NAME\""
+    fi
     echo "dry-run: validate --install-plugin-profile without changing Xcode home"
   fi
   if [[ -n "$AGENT_RUNTIME" ]]; then
@@ -425,6 +438,26 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
   xattr -c -r "$PLUGIN_PAYLOAD_DIR"
 fi
 
+if [[ -n "$APP_ICON_SOURCE" ]]; then
+  has sips || { echo "error: sips is required to build the installer app icon" >&2; exit 1; }
+  has iconutil || { echo "error: iconutil is required to build the installer app icon" >&2; exit 1; }
+  APP_ICONSET="$OUTPUT_DIR/app-icon.iconset"
+  rm -rf "$APP_ICONSET"
+  mkdir -p "$APP_ICONSET"
+  sips -z 16 16 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_16x16.png" >/dev/null
+  sips -z 32 32 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_16x16@2x.png" >/dev/null
+  sips -z 32 32 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_32x32.png" >/dev/null
+  sips -z 64 64 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_32x32@2x.png" >/dev/null
+  sips -z 128 128 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_128x128.png" >/dev/null
+  sips -z 256 256 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_128x128@2x.png" >/dev/null
+  sips -z 256 256 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_256x256.png" >/dev/null
+  sips -z 512 512 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_256x256@2x.png" >/dev/null
+  sips -z 512 512 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_512x512.png" >/dev/null
+  sips -z 1024 1024 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_512x512@2x.png" >/dev/null
+  iconutil -c icns "$APP_ICONSET" -o "$RESOURCES_DIR/$APP_ICON_NAME"
+  rm -rf "$APP_ICONSET"
+fi
+
 if [[ -n "$AGENT_RUNTIME" ]]; then
   mkdir -p "$PAYLOAD_DIR"
   cp -p "$AGENT_RUNTIME" "$PAYLOAD_DIR/codex"
@@ -450,6 +483,12 @@ cat > "$INSTALLER_ENTITLEMENTS" <<'EOF'
 </plist>
 EOF
 
+APP_ICON_PLIST=""
+if [[ -n "$APP_ICON_SOURCE" ]]; then
+  APP_ICON_PLIST="  <key>CFBundleIconFile</key>
+  <string>$(xml_escape "$APP_ICON_NAME")</string>"
+fi
+
 cat > "$CONTENTS_DIR/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -463,10 +502,11 @@ cat > "$CONTENTS_DIR/Info.plist" <<EOF
   <string>$(xml_escape "$APP_EXECUTABLE")</string>
   <key>CFBundleIdentifier</key>
   <string>$(xml_escape "$BUNDLE_ID")</string>
+$APP_ICON_PLIST
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
-  <string>$(xml_escape "$BUNDLE_NAME")</string>
+  <string>$(xml_escape "$DISPLAY_NAME")</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
@@ -554,12 +594,18 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
   cat >> "$STAGING_DIR/README.txt" <<EOF
 
 To install the embedded xcode-headless plugin profile:
-  Quit Xcode, then run:
-  ./$BUNDLE_NAME.app/Contents/MacOS/$APP_EXECUTABLE --install-plugin-profile
+  1. Quit Xcode.
+  2. Double-click $BUNDLE_NAME.app.
+  3. Review the confirmation and click Install.
 
 The installer backs up the prior profile and Xcode Codex config, enables the
 public plugin identity, and disables conflicting identities without deleting
-their caches. It prints the exact rollback path. Restore the complete state with:
+their caches. The completion dialog shows the exact rollback path.
+
+For terminal automation from this mounted DMG directory:
+  ./$BUNDLE_NAME.app/Contents/MacOS/$APP_EXECUTABLE --install-plugin-profile
+
+Restore the complete state from this mounted DMG directory with:
   ./$BUNDLE_NAME.app/Contents/MacOS/$APP_EXECUTABLE --restore-plugin-profile BACKUP_PATH
 
 Embedded plugin: $PLUGIN_NAME $PLUGIN_VERSION
@@ -671,7 +717,10 @@ plugin_manifest_sha256: $PLUGIN_MANIFEST_SHA256
 plugin_core_sha256: $PLUGIN_CORE_SHA256
 
 Plugin-profile install command after mounting the DMG:
-  "/Volumes/$VOLUME_NAME/$BUNDLE_NAME.app/Contents/MacOS/$APP_EXECUTABLE" --install-plugin-profile
+  Double-click "$BUNDLE_NAME.app" in the mounted DMG.
+
+Optional terminal automation from the mounted DMG directory:
+  "./$BUNDLE_NAME.app/Contents/MacOS/$APP_EXECUTABLE" --install-plugin-profile
 EOF
 fi
 if [[ -n "$AGENT_RUNTIME" ]]; then

@@ -2,7 +2,7 @@
 
 ## Candidate
 
-The currently qualified private candidate is:
+The previously qualified private candidate is:
 
 ```text
 version: 0.2.0
@@ -17,6 +17,12 @@ routing core SHA-256: 9f7a0f4b9d9d5fec5cde9b01a274d5eb7ec7a4cdd147294e66896a1f80
 
 Gatekeeper accepted both the DMG and its mounted installer app. Strict code
 signature verification and stapler validation passed.
+
+This artifact is superseded as a distribution candidate because its app
+bundle exposed only a command-line interface when double-clicked. The
+installer implementation now includes a native confirmation and completion
+flow; that changed artifact requires fresh signing, notarization, exact-package
+transaction testing, and live Xcode qualification before promotion.
 
 ## Installer Gates
 
@@ -56,8 +62,10 @@ hook listing contained only the trusted public plugin hook.
 
 ## Distribution Decision
 
-This candidate is ready only for narrower distribution from the private
-companion repository. It is not yet a public launch:
+The recorded candidate is no longer eligible for distribution. A replacement
+may return to narrower-distribution status only after the full installer and
+stock Xcode gates above pass against the exact rebuilt DMG. It will still not
+be a public launch until:
 
 - the public `jkaunert/apple-appdev-workflow` repository remains frozen for the
   Build Week judging window;

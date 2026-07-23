@@ -57,13 +57,22 @@ and records its accepted submission ID in the sidecar manifest.
 
 ## Install Or Roll Back The Plugin Profile
 
-Quit Xcode first. After the DMG passes Gatekeeper, run the embedded installer
-explicitly:
+Open the DMG and quit Xcode. Then double-click
+`AppleAppDevXcodeHeadlessInstaller.app`, review the native confirmation, and
+click **Install**. The completion dialog confirms that Xcode's active Codex
+agent was not changed and provides a copyable rollback path.
+
+For terminal automation, change into the mounted DMG directory and invoke the
+same signed app executable explicitly:
 
 ```bash
-/Volumes/Apple\ AppDev\ Xcode\ Headless\ Installer/AppleAppDevXcodeHeadlessInstaller.app/Contents/MacOS/xcode-headless-installer \
+cd "/Volumes/Apple AppDev Xcode Headless Installer"
+./AppleAppDevXcodeHeadlessInstaller.app/Contents/MacOS/xcode-headless-installer \
   --install-plugin-profile
 ```
+
+The volume can receive a numeric suffix if another copy is already mounted.
+Finder double-click installation does not depend on the mounted volume name.
 
 The install target is:
 
@@ -80,7 +89,8 @@ identities in that Xcode home without deleting their caches. It prints the
 exact rollback path. Restore the complete profile-and-config state with:
 
 ```bash
-/Volumes/Apple\ AppDev\ Xcode\ Headless\ Installer/AppleAppDevXcodeHeadlessInstaller.app/Contents/MacOS/xcode-headless-installer \
+cd "/Volumes/Apple AppDev Xcode Headless Installer"
+./AppleAppDevXcodeHeadlessInstaller.app/Contents/MacOS/xcode-headless-installer \
   --restore-plugin-profile /absolute/path/printed/by/install
 ```
 

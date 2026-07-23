@@ -39,7 +39,8 @@ The profile-only package contains:
 The installer validates the embedded profile, refuses symbolic-link payloads,
 backs up the prior profile and Xcode Codex config, enables the public
 marketplace identity, disables conflicting identities without deleting their
-caches, prints a validated restore path, and leaves
+caches, presents a native double-click installation flow with a copyable
+validated restore path, and leaves
 `Agents/XcodeVersions/<build>/codex` unchanged.
 
 Lifecycle-hook trust remains an explicit user decision. The installer does not
