@@ -23,6 +23,16 @@ The routing core hash is the package manifest's aggregate for the hook,
 neutral policy, and top-level owner kernel. It must be checked from the final
 DMG sidecar before installation.
 
+The qualified `UserPromptSubmit` hook definition has this stock Codex trust
+hash:
+
+```text
+sha256:1c82a273ee2e6d13245f8ade4bff516ecb8d46b623c96c22e4e572a8edb87711
+```
+
+Treat a different hash as a changed hook definition that requires a fresh
+review. The installer intentionally does not add this hash to `hooks.state`.
+
 The companion installs and enables only the `apple-developer-tools` identity
 for the target Xcode Codex home. It disables conflicting
 `apple-appdev-workflow@<source>` config entries there to prevent duplicate

@@ -16,6 +16,9 @@ CodingAssistant Codex home without changing Xcode's active Codex agent.
 - paired public plugin release: `jkaunert/apple-appdev-workflow` `v0.2.0`
 - public plugin release commit:
   `c3702d917fedaa6674a750695d3173e36d714522`
+- signed and notarized `0.2.0` candidate qualified against stock Xcode 27.0
+  build `27A5209h`; see
+  [release qualification](docs/RELEASE_QUALIFICATION.md)
 - the public plugin repository remains frozen during the Build Week judging
   window and is not modified by companion development
 
@@ -38,6 +41,12 @@ backs up the prior profile and Xcode Codex config, enables the public
 marketplace identity, disables conflicting identities without deleting their
 caches, prints a validated restore path, and leaves
 `Agents/XcodeVersions/<build>/codex` unchanged.
+
+Lifecycle-hook trust remains an explicit user decision. The installer does not
+pre-trust the embedded `UserPromptSubmit` hook. After installation, review and
+trust it with stock Codex's hook browser before restarting Xcode; the exact
+procedure is documented in the
+[installer guide](tools/xcode-headless-installer/README.md#review-and-trust-the-hook).
 
 ## Development
 

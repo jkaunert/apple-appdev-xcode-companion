@@ -92,6 +92,39 @@ the final manifest, hook, neutral policy, and owner-kernel shape.
 Plugin-profile operations never write under Xcode's `Agents` directory and
 never change `Agents/XcodeVersions/<build>/codex`.
 
+## Review And Trust The Hook
+
+The installer enables the plugin profile but deliberately does not pre-trust
+its lifecycle hook. Trust is a separate, explicit user action because hook
+commands run outside the Codex sandbox.
+
+With Xcode still closed, launch the stock Codex TUI from the Xcode
+CodingAssistant home:
+
+```bash
+XCODE_BUILD="$(xcodebuild -version | awk '/Build version/{print $3}')"
+XCODE_CODEX_HOME="$HOME/Library/Developer/Xcode/CodingAssistant/codex"
+CODEX_HOME="$XCODE_CODEX_HOME" \
+  "$HOME/Library/Developer/Xcode/CodingAssistant/Agents/XcodeVersions/$XCODE_BUILD/codex/codex"
+```
+
+Stock Codex opens its startup hook review when a definition needs approval.
+Choose **Review Hooks**, inspect the command and source path, and trust the
+`UserPromptSubmit` hook from
+`apple-appdev-workflow@apple-developer-tools`. If the startup review has
+already been dismissed, enter `/hooks` to open the same browser. For version
+`0.2.0`, the expected definition is:
+
+```text
+command: node "$PLUGIN_ROOT/hooks/apple_router.mjs"
+hash: sha256:1c82a273ee2e6d13245f8ade4bff516ecb8d46b623c96c22e4e572a8edb87711
+```
+
+Do not approve a different command, source identity, or hash without reviewing
+the changed package. Quit the TUI after approval, start Xcode, create a fresh
+Codex conversation, and confirm the first Apple-development prompt produces
+the expected orchestrator-led route.
+
 ## Optional Primary-Agent Canary
 
 The historical primary-agent mode remains available for isolated canaries:
@@ -125,6 +158,8 @@ and only then signs the installer app.
 - Installing the profile does not prove a restarted Xcode host loaded it. Run a
   fresh Xcode CodingAssistant smoke after install before claiming that exact
   package is host-validated.
+- Hook discovery does not imply hook trust. Complete the explicit stock Codex
+  hook review before the live Xcode smoke.
 - The `xcode-headless` manifest must omit plugin-managed `mcpServers` and retired
   `routerSelection`; Xcode owns the native tool surface while the hook retains
   deterministic workflow ownership.
