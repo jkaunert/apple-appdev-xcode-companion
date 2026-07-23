@@ -554,10 +554,12 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
   cat >> "$STAGING_DIR/README.txt" <<EOF
 
 To install the embedded xcode-headless plugin profile:
+  Quit Xcode, then run:
   ./$BUNDLE_NAME.app/Contents/MacOS/$APP_EXECUTABLE --install-plugin-profile
 
-The installer backs up an existing same-version profile before replacement and
-prints the exact rollback path. Restore it with:
+The installer backs up the prior profile and Xcode Codex config, enables the
+public plugin identity, and disables conflicting identities without deleting
+their caches. It prints the exact rollback path. Restore the complete state with:
   ./$BUNDLE_NAME.app/Contents/MacOS/$APP_EXECUTABLE --restore-plugin-profile BACKUP_PATH
 
 Embedded plugin: $PLUGIN_NAME $PLUGIN_VERSION

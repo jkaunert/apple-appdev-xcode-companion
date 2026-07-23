@@ -28,6 +28,19 @@ struct PluginIdentity {
     let version: String
 }
 
+struct PluginInstallState: Codable {
+    let schemaVersion: Int
+    let source: String
+    let pluginName: String
+    let version: String
+    let previousProfilePresent: Bool
+    let previousConfigPresent: Bool
+}
+
+let pluginInstallStateFilename = "install-state.json"
+let pluginInstallProfileDirectory = "previous-profile"
+let pluginInstallConfigFilename = "config.toml.before-install"
+
 func usage() -> String {
     """
     Usage:
@@ -45,7 +58,7 @@ func usage() -> String {
       --force                  Replace an existing destination agent payload directory.
 
     Plugin-profile options:
-      --install-plugin-profile Copy the embedded xcode-headless plugin profile.
+      --install-plugin-profile Copy and enable the embedded xcode-headless plugin profile.
       --restore-plugin-profile PATH
                                Restore a backup created by a prior profile install.
       --plugin-version VALUE   Payload version under XcodePluginProfile/<plugin>.
@@ -60,7 +73,7 @@ func usage() -> String {
       -h, --help               Show this help.
 
     Plugin-profile installation never changes Xcode's active Codex agent.
-    Replacing an existing same-version profile always creates a rollback backup.
+    Install and restore transactionally preserve the prior profile and config.
     """
 }
 
@@ -213,6 +226,26 @@ func defaultAgentsRoot() -> URL {
 func defaultXcodeCodexHome() -> URL {
     URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
         .appendingPathComponent("Library/Developer/Xcode/CodingAssistant/codex", isDirectory: true)
+}
+
+func requireXcodeClosedForDefaultHome(_ xcodeCodexHome: URL, dryRun: Bool) throws {
+    guard !dryRun,
+          xcodeCodexHome.standardizedFileURL == defaultXcodeCodexHome().standardizedFileURL
+    else {
+        return
+    }
+    let (status, output) = try run("/usr/bin/pgrep", ["-x", "Xcode"])
+    if status == 0 {
+        throw InstallerError(
+            description: "quit Xcode before changing its CodingAssistant plugin profile"
+        )
+    }
+    guard status == 1 else {
+        throw InstallerError(
+            description: "could not determine whether Xcode is running: "
+                + output.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+    }
 }
 
 func defaultResourceDirectory(_ name: String) throws -> URL {
@@ -495,6 +528,152 @@ func pluginCacheTarget(
         .appendingPathComponent(version, isDirectory: true)
 }
 
+func pluginIdentifier(source: String, pluginName: String) -> String {
+    "\(pluginName)@\(source)"
+}
+
+func pluginTableIdentifier(_ line: String) -> String? {
+    let trimmed = line.trimmingCharacters(in: .whitespaces)
+    let prefix = "[plugins.\""
+    let suffix = "\"]"
+    guard trimmed.hasPrefix(prefix), trimmed.hasSuffix(suffix) else {
+        return nil
+    }
+    return String(trimmed.dropFirst(prefix.count).dropLast(suffix.count))
+}
+
+func setPluginEnabled(
+    lines: inout [String],
+    pluginID: String,
+    enabled: Bool
+) -> Bool {
+    guard let headerIndex = lines.firstIndex(where: {
+        pluginTableIdentifier($0) == pluginID
+    }) else {
+        return false
+    }
+    var nextHeader = headerIndex + 1
+    while nextHeader < lines.count {
+        let trimmed = lines[nextHeader].trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("[") && trimmed.hasSuffix("]") {
+            break
+        }
+        let assignment = trimmed.split(separator: "=", maxSplits: 1)
+        if assignment.count == 2,
+           assignment[0].trimmingCharacters(in: .whitespaces) == "enabled" {
+            lines[nextHeader] = "enabled = \(enabled ? "true" : "false")"
+            return true
+        }
+        nextHeader += 1
+    }
+    lines.insert("enabled = \(enabled ? "true" : "false")", at: nextHeader)
+    return true
+}
+
+func configActivatingPlugin(
+    _ existing: String,
+    source: String,
+    pluginName: String
+) -> String {
+    var lines = existing.components(separatedBy: "\n")
+    if lines.last == "" {
+        lines.removeLast()
+    }
+    let targetID = pluginIdentifier(source: source, pluginName: pluginName)
+    let conflictingIDs = lines.compactMap(pluginTableIdentifier).filter {
+        $0.hasPrefix("\(pluginName)@") && $0 != targetID
+    }
+    for conflictingID in conflictingIDs {
+        _ = setPluginEnabled(lines: &lines, pluginID: conflictingID, enabled: false)
+    }
+    if !setPluginEnabled(lines: &lines, pluginID: targetID, enabled: true) {
+        if let last = lines.last, !last.isEmpty {
+            lines.append("")
+        }
+        lines.append("[plugins.\"\(targetID)\"]")
+        lines.append("enabled = true")
+    }
+    return lines.joined(separator: "\n") + "\n"
+}
+
+func writeConfig(_ contents: String, to configURL: URL) throws {
+    try FileManager.default.createDirectory(
+        at: configURL.deletingLastPathComponent(),
+        withIntermediateDirectories: true
+    )
+    guard let data = contents.data(using: .utf8) else {
+        throw InstallerError(description: "could not encode Xcode Codex config")
+    }
+    try data.write(to: configURL, options: .atomic)
+}
+
+func writeInstallState(_ state: PluginInstallState, to backup: URL) throws {
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    var data = try encoder.encode(state)
+    data.append(0x0A)
+    try data.write(
+        to: backup.appendingPathComponent(pluginInstallStateFilename),
+        options: .atomic
+    )
+}
+
+func readInstallState(from backup: URL) throws -> PluginInstallState {
+    let stateURL = backup.appendingPathComponent(pluginInstallStateFilename)
+    do {
+        let data = try Data(contentsOf: stateURL)
+        let state = try JSONDecoder().decode(PluginInstallState.self, from: data)
+        guard state.schemaVersion == 1 else {
+            throw InstallerError(
+                description: "unsupported plugin install backup schema: \(state.schemaVersion)"
+            )
+        }
+        return state
+    } catch let error as InstallerError {
+        throw error
+    } catch {
+        throw InstallerError(description: "invalid plugin install backup: \(stateURL.path)")
+    }
+}
+
+func restoreConfigSnapshot(
+    from backup: URL,
+    previousConfigPresent: Bool,
+    configURL: URL
+) throws {
+    let fileManager = FileManager.default
+    if previousConfigPresent {
+        let snapshot = backup.appendingPathComponent(pluginInstallConfigFilename)
+        guard fileManager.fileExists(atPath: snapshot.path) else {
+            throw InstallerError(description: "config backup is missing: \(snapshot.path)")
+        }
+        let data = try Data(contentsOf: snapshot)
+        try fileManager.createDirectory(
+            at: configURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try data.write(to: configURL, options: .atomic)
+    } else if fileManager.fileExists(atPath: configURL.path) {
+        try fileManager.removeItem(at: configURL)
+    }
+}
+
+func createInstallBackup(
+    at backup: URL,
+    state: PluginInstallState,
+    configURL: URL
+) throws {
+    let fileManager = FileManager.default
+    try fileManager.createDirectory(at: backup, withIntermediateDirectories: true)
+    if state.previousConfigPresent {
+        try fileManager.copyItem(
+            at: configURL,
+            to: backup.appendingPathComponent(pluginInstallConfigFilename)
+        )
+    }
+    try writeInstallState(state, to: backup)
+}
+
 func isContained(_ candidate: URL, in root: URL) -> Bool {
     let candidatePath = candidate.resolvingSymlinksInPath().standardizedFileURL.path
     let rootPath = root.resolvingSymlinksInPath().standardizedFileURL.path
@@ -506,30 +685,52 @@ func installPluginProfile(
     from payload: URL,
     to destination: URL,
     quarantineRoot: URL,
+    xcodeCodexHome: URL,
+    source: String,
+    pluginName: String,
     dryRun: Bool
 ) throws -> URL? {
     let fileManager = FileManager.default
     let identity = try validatePluginProfile(at: payload)
-    var backup: URL?
-    if fileManager.fileExists(atPath: destination.path) {
-        backup = try uniquePath(
-            quarantineRoot.appendingPathComponent(
-                "\(identity.version)-full-plugin-cache-\(timestamp())",
-                isDirectory: true
-            )
+    let configURL = xcodeCodexHome.appendingPathComponent("config.toml")
+    let previousProfilePresent = fileManager.fileExists(atPath: destination.path)
+    let previousConfigPresent = fileManager.fileExists(atPath: configURL.path)
+    let backup = try uniquePath(
+        quarantineRoot.appendingPathComponent(
+            "\(identity.version)-plugin-install-\(timestamp())",
+            isDirectory: true
         )
-        describe("backup existing plugin profile: \(destination.path) -> \(backup!.path)")
+    )
+    let state = PluginInstallState(
+        schemaVersion: 1,
+        source: source,
+        pluginName: pluginName,
+        version: identity.version,
+        previousProfilePresent: previousProfilePresent,
+        previousConfigPresent: previousConfigPresent
+    )
+    if previousProfilePresent {
+        describe(
+            "backup existing plugin profile: \(destination.path) -> "
+                + "\(backup.path)/\(pluginInstallProfileDirectory)"
+        )
     }
+    describe("backup Xcode Codex plugin state: \(backup.path)")
     describe("install xcode-headless plugin profile: \(payload.path) -> \(destination.path)")
+    describe("enable plugin: \(pluginIdentifier(source: source, pluginName: pluginName))")
+    describe("disable conflicting \(pluginName) identities without removing their caches")
     if dryRun {
         describe("dry-run: Xcode active Codex agent remains unchanged")
         return backup
     }
 
     try fileManager.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
-    if let backup {
-        try fileManager.createDirectory(at: backup.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try fileManager.moveItem(at: destination, to: backup)
+    try createInstallBackup(at: backup, state: state, configURL: configURL)
+    if previousProfilePresent {
+        try fileManager.moveItem(
+            at: destination,
+            to: backup.appendingPathComponent(pluginInstallProfileDirectory, isDirectory: true)
+        )
     }
     do {
         try copyDirectory(from: payload, to: destination)
@@ -537,6 +738,17 @@ func installPluginProfile(
             at: destination,
             expectedName: identity.name,
             expectedVersion: identity.version
+        )
+        let existingConfig = previousConfigPresent
+            ? try String(contentsOf: configURL, encoding: .utf8)
+            : ""
+        try writeConfig(
+            configActivatingPlugin(
+                existingConfig,
+                source: source,
+                pluginName: pluginName
+            ),
+            to: configURL
         )
     } catch {
         let installError = error
@@ -548,27 +760,38 @@ func installPluginProfile(
                 rollbackErrors.append("remove partial destination failed: \(error)")
             }
         }
-        if let backup, fileManager.fileExists(atPath: backup.path),
+        let previousProfile = backup.appendingPathComponent(
+            pluginInstallProfileDirectory,
+            isDirectory: true
+        )
+        if previousProfilePresent,
+           fileManager.fileExists(atPath: previousProfile.path),
            !fileManager.fileExists(atPath: destination.path) {
             do {
-                try fileManager.moveItem(at: backup, to: destination)
+                try fileManager.moveItem(at: previousProfile, to: destination)
             } catch {
                 rollbackErrors.append("restore prior profile failed: \(error)")
             }
         }
+        do {
+            try restoreConfigSnapshot(
+                from: backup,
+                previousConfigPresent: previousConfigPresent,
+                configURL: configURL
+            )
+        } catch {
+            rollbackErrors.append("restore prior config failed: \(error)")
+        }
         if rollbackErrors.isEmpty {
             throw installError
         }
-        let backupLocation = backup?.path ?? "none"
         throw InstallerError(
             description: "plugin install failed: \(installError); automatic rollback incomplete: "
                 + rollbackErrors.joined(separator: "; ")
-                + "; prior-profile backup: \(backupLocation)"
+                + "; install-state backup: \(backup.path)"
         )
     }
-    if let backup {
-        describe("rollback backup: \(backup.path)")
-    }
+    describe("rollback backup: \(backup.path)")
     describe("Xcode active Codex agent unchanged")
     return backup
 }
@@ -593,22 +816,44 @@ func restorePluginProfile(
     guard fileManager.fileExists(atPath: backup.path) else {
         throw InstallerError(description: "plugin backup is missing: \(backup.path)")
     }
-    let identity = try validatePluginProfile(at: backup, expectedName: pluginName)
+    let state = try readInstallState(from: backup)
+    guard state.source == source, state.pluginName == pluginName else {
+        throw InstallerError(description: "plugin backup identity does not match requested restore")
+    }
+    let version = try validatePathComponent(state.version, label: "plugin backup version")
+    let previousProfile = backup.appendingPathComponent(
+        pluginInstallProfileDirectory,
+        isDirectory: true
+    )
+    if state.previousProfilePresent {
+        _ = try validatePluginProfile(
+            at: previousProfile,
+            expectedName: pluginName,
+            expectedVersion: version
+        )
+    }
+    let configURL = xcodeCodexHome.appendingPathComponent("config.toml")
+    if state.previousConfigPresent {
+        let configBackup = backup.appendingPathComponent(pluginInstallConfigFilename)
+        guard fileManager.fileExists(atPath: configBackup.path) else {
+            throw InstallerError(description: "config backup is missing: \(configBackup.path)")
+        }
+    }
     let destination = pluginCacheTarget(
         xcodeCodexHome: xcodeCodexHome,
         source: source,
         pluginName: pluginName,
-        version: identity.version
+        version: version
     )
     let replacedBackup = try uniquePath(
         quarantineRoot.appendingPathComponent(
-            "\(identity.version)-before-restore-\(timestamp())",
+            "\(version)-before-restore-\(timestamp())",
             isDirectory: true
         )
     )
-    describe("restore xcode-headless plugin profile: \(backup.path) -> \(destination.path)")
+    describe("restore Xcode Codex plugin state: \(backup.path)")
     if fileManager.fileExists(atPath: destination.path) {
-        describe("preserve replaced profile: \(destination.path) -> \(replacedBackup.path)")
+        describe("preserve replaced profile: \(destination.path) -> \(replacedBackup.path)/\(pluginInstallProfileDirectory)")
     }
     if dryRun {
         describe("dry-run: Xcode active Codex agent remains unchanged")
@@ -616,44 +861,65 @@ func restorePluginProfile(
     }
 
     try fileManager.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
-    var preservedCurrent = false
-    if fileManager.fileExists(atPath: destination.path) {
-        try fileManager.createDirectory(
-            at: replacedBackup.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        try fileManager.moveItem(at: destination, to: replacedBackup)
-        preservedCurrent = true
+    let currentProfilePresent = fileManager.fileExists(atPath: destination.path)
+    let currentConfigPresent = fileManager.fileExists(atPath: configURL.path)
+    let replacedState = PluginInstallState(
+        schemaVersion: 1,
+        source: source,
+        pluginName: pluginName,
+        version: version,
+        previousProfilePresent: currentProfilePresent,
+        previousConfigPresent: currentConfigPresent
+    )
+    try createInstallBackup(at: replacedBackup, state: replacedState, configURL: configURL)
+    let replacedProfile = replacedBackup.appendingPathComponent(
+        pluginInstallProfileDirectory,
+        isDirectory: true
+    )
+    if currentProfilePresent {
+        try fileManager.moveItem(at: destination, to: replacedProfile)
     }
-    var requestedBackupMoved = false
     do {
-        try fileManager.moveItem(at: backup, to: destination)
-        requestedBackupMoved = true
-        _ = try validatePluginProfile(
-            at: destination,
-            expectedName: pluginName,
-            expectedVersion: identity.version
+        if state.previousProfilePresent {
+            try copyDirectory(from: previousProfile, to: destination)
+            _ = try validatePluginProfile(
+                at: destination,
+                expectedName: pluginName,
+                expectedVersion: version
+            )
+        }
+        try restoreConfigSnapshot(
+            from: backup,
+            previousConfigPresent: state.previousConfigPresent,
+            configURL: configURL
         )
     } catch {
         let restoreError = error
         var recoveryErrors: [String] = []
-        if requestedBackupMoved,
-           fileManager.fileExists(atPath: destination.path),
-           !fileManager.fileExists(atPath: backup.path) {
+        if fileManager.fileExists(atPath: destination.path) {
             do {
-                try fileManager.moveItem(at: destination, to: backup)
+                try fileManager.removeItem(at: destination)
             } catch {
-                recoveryErrors.append("preserve requested backup failed: \(error)")
+                recoveryErrors.append("remove partial restored profile failed: \(error)")
             }
         }
-        if preservedCurrent,
-           fileManager.fileExists(atPath: replacedBackup.path),
+        if currentProfilePresent,
+           fileManager.fileExists(atPath: replacedProfile.path),
            !fileManager.fileExists(atPath: destination.path) {
             do {
-                try fileManager.moveItem(at: replacedBackup, to: destination)
+                try fileManager.moveItem(at: replacedProfile, to: destination)
             } catch {
                 recoveryErrors.append("restore replaced profile failed: \(error)")
             }
+        }
+        do {
+            try restoreConfigSnapshot(
+                from: replacedBackup,
+                previousConfigPresent: currentConfigPresent,
+                configURL: configURL
+            )
+        } catch {
+            recoveryErrors.append("restore replaced config failed: \(error)")
         }
         if recoveryErrors.isEmpty {
             throw restoreError
@@ -664,9 +930,7 @@ func restorePluginProfile(
                 + "; requested backup: \(backup.path); preserved profile: \(replacedBackup.path)"
         )
     }
-    if preservedCurrent {
-        describe("rollback backup for replaced profile: \(replacedBackup.path)")
-    }
+    describe("rollback backup for replaced state: \(replacedBackup.path)")
     describe("Xcode active Codex agent unchanged")
 }
 
@@ -714,6 +978,7 @@ func installPackagedPluginProfile(options: Options) throws {
     let pluginName = try validatePathComponent(options.pluginName, label: "plugin name")
     let xcodeCodexHome = options.xcodeCodexHome ?? defaultXcodeCodexHome()
     let payloadRoot = try options.pluginPayloadRoot ?? defaultResourceDirectory("XcodePluginProfile")
+    try requireXcodeClosedForDefaultHome(xcodeCodexHome, dryRun: options.dryRun)
     let pluginPayloadRoot = payloadRoot.appendingPathComponent(pluginName, isDirectory: true)
     let version = try resolveOnlyDirectory(
         root: pluginPayloadRoot,
@@ -748,6 +1013,9 @@ func installPackagedPluginProfile(options: Options) throws {
         from: payload,
         to: destination,
         quarantineRoot: quarantineRoot,
+        xcodeCodexHome: xcodeCodexHome,
+        source: source,
+        pluginName: pluginName,
         dryRun: options.dryRun
     )
 }
@@ -776,6 +1044,7 @@ func main() -> Int32 {
             let source = try validatePathComponent(options.pluginSource, label: "plugin source")
             let pluginName = try validatePathComponent(options.pluginName, label: "plugin name")
             let xcodeCodexHome = options.xcodeCodexHome ?? defaultXcodeCodexHome()
+            try requireXcodeClosedForDefaultHome(xcodeCodexHome, dryRun: options.dryRun)
             try restorePluginProfile(
                 from: backup,
                 xcodeCodexHome: xcodeCodexHome,

@@ -34,8 +34,10 @@ The profile-only package contains:
 - no plugin-managed MCP servers
 
 The installer validates the embedded profile, refuses symbolic-link payloads,
-backs up an existing same-version installation, prints a validated restore
-path, and leaves `Agents/XcodeVersions/<build>/codex` unchanged.
+backs up the prior profile and Xcode Codex config, enables the public
+marketplace identity, disables conflicting identities without deleting their
+caches, prints a validated restore path, and leaves
+`Agents/XcodeVersions/<build>/codex` unchanged.
 
 ## Development
 

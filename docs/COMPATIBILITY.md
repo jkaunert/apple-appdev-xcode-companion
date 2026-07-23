@@ -23,6 +23,8 @@ The routing core hash is the package manifest's aggregate for the hook,
 neutral policy, and top-level owner kernel. It must be checked from the final
 DMG sidecar before installation.
 
-The companion installs only the `apple-developer-tools` cache entry. It does
-not remove, overwrite, or migrate `LocalAppleWorkflow`, because other local
-hosts may rely on that experimental marketplace.
+The companion installs and enables only the `apple-developer-tools` identity
+for the target Xcode Codex home. It disables conflicting
+`apple-appdev-workflow@<source>` config entries there to prevent duplicate
+hook execution, but does not remove, overwrite, or migrate their caches.
+`LocalAppleWorkflow` installations in other Codex homes remain untouched.

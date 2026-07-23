@@ -57,7 +57,8 @@ and records its accepted submission ID in the sidecar manifest.
 
 ## Install Or Roll Back The Plugin Profile
 
-After the DMG passes Gatekeeper, run the embedded installer explicitly:
+Quit Xcode first. After the DMG passes Gatekeeper, run the embedded installer
+explicitly:
 
 ```bash
 /Volumes/Apple\ AppDev\ Xcode\ Headless\ Installer/AppleAppDevXcodeHeadlessInstaller.app/Contents/MacOS/xcode-headless-installer \
@@ -70,19 +71,23 @@ The install target is:
 ~/Library/Developer/Xcode/CodingAssistant/codex/plugins/cache/apple-developer-tools/apple-appdev-workflow/<version>
 ```
 
-If that same version already exists, the installer moves it to Xcode Codex
-home's `.tmp/plugins/quarantine/apple-appdev-workflow/` directory before
-copying the new profile. It prints the exact rollback path. Restore it with:
+The installer creates a transaction backup under Xcode Codex home's
+`.tmp/plugins/quarantine/apple-appdev-workflow/` directory before copying the
+new profile. The transaction includes the prior profile when present and the
+prior `config.toml` state. It enables
+`apple-appdev-workflow@apple-developer-tools` and disables conflicting
+identities in that Xcode home without deleting their caches. It prints the
+exact rollback path. Restore the complete profile-and-config state with:
 
 ```bash
 /Volumes/Apple\ AppDev\ Xcode\ Headless\ Installer/AppleAppDevXcodeHeadlessInstaller.app/Contents/MacOS/xcode-headless-installer \
   --restore-plugin-profile /absolute/path/printed/by/install
 ```
 
-Restore accepts only a validated plugin backup inside that quarantine root. It
-preserves the profile being replaced as a second rollback backup. Both install
-and restore strip copied extended attributes and validate the final manifest,
-hook, neutral policy, and owner-kernel shape.
+Restore accepts only a validated transaction backup inside that quarantine
+root. It preserves the profile and config being replaced as a second rollback
+backup. Both install and restore strip copied extended attributes and validate
+the final manifest, hook, neutral policy, and owner-kernel shape.
 
 Plugin-profile operations never write under Xcode's `Agents` directory and
 never change `Agents/XcodeVersions/<build>/codex`.
