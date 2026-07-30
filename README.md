@@ -13,6 +13,9 @@ CodingAssistant Codex home without changing Xcode's active Codex agent.
 - private staging repository; not a public release surface
 - source imported from private Apple AppDev Workflow commit
   `c30409e917a5bcdb02010c0b78b4971c2b3fa42a`
+- dual-hook replacement candidate pinned to private Apple AppDev Workflow commit
+  `b176905b88ac3b21827f088d8a8c1b5b4c044a23`; it remains unqualified pending
+  exact-package signing, trust, and live-host validation
 - paired public plugin release: `jkaunert/apple-appdev-workflow` `v0.2.0`
 - public plugin release commit:
   `c3702d917fedaa6674a750695d3173e36d714522`
@@ -44,10 +47,11 @@ validated restore path, and leaves
 `Agents/XcodeVersions/<build>/codex` unchanged.
 
 Lifecycle-hook trust remains an explicit user decision. The installer does not
-pre-trust the embedded `UserPromptSubmit` hook. After installation, review and
-trust it with stock Codex's hook browser before restarting Xcode; the exact
+pre-trust the embedded `UserPromptSubmit` routing hook or `Stop` contract
+guard. After installation, review and trust both with stock Codex's hook
+browser before restarting Xcode; the exact
 procedure is documented in the
-[installer guide](tools/xcode-headless-installer/README.md#review-and-trust-the-hook).
+[installer guide](tools/xcode-headless-installer/README.md#review-and-trust-the-hooks).
 
 ## Development
 

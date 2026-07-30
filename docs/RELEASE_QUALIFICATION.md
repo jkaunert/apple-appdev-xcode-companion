@@ -1,5 +1,15 @@
 # Release Qualification
 
+> Historical qualification notice: the evidence below applies to the prior
+> single-hook candidate. The current working tree adds a `Stop` final-contract
+> guard and changes the routing-core and hook-trust hashes. It is not a
+> replacement release candidate until a clean exact-source DMG is signed,
+> notarized, stapled, trusted for both hooks, and rerun through the fresh Xcode
+> smoke plus the preserved host matrix.
+>
+> The unqualified dual-hook staging source is pinned to private Apple AppDev
+> Workflow commit `b176905b88ac3b21827f088d8a8c1b5b4c044a23`.
+
 ## Candidate
 
 The currently qualified private candidate is:

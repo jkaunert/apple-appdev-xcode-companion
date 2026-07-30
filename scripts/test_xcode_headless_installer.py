@@ -26,6 +26,7 @@ LOCAL_PLUGIN_SOURCE = "LocalAppleWorkflow"
 REQUIRED_PROFILE_FILES = (
     "hooks/hooks.json",
     "hooks/apple_router.mjs",
+    "hooks/apple_contract_guard.mjs",
     "routing/router-policy.json",
     "routing/top-level-owner-kernel.md",
 )

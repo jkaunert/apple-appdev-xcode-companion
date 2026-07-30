@@ -99,15 +99,16 @@ cd "/Volumes/Apple AppDev Xcode Headless Installer"
 Restore accepts only a validated transaction backup inside that quarantine
 root. It preserves the profile and config being replaced as a second rollback
 backup. Both install and restore strip copied extended attributes and validate
-the final manifest, hook, neutral policy, and owner-kernel shape.
+the final manifest, both lifecycle hooks, neutral policy, and owner-kernel
+shape.
 
 Plugin-profile operations never write under Xcode's `Agents` directory and
 never change `Agents/XcodeVersions/<build>/codex`.
 
-## Review And Trust The Hook
+## Review And Trust The Hooks
 
 The installer enables the plugin profile but deliberately does not pre-trust
-its lifecycle hook. Trust is a separate, explicit user action because hook
+its lifecycle hooks. Trust is a separate, explicit user action because hook
 commands run outside the Codex sandbox.
 
 With Xcode still closed, launch the stock Codex TUI from the Xcode
@@ -122,20 +123,26 @@ CODEX_HOME="$XCODE_CODEX_HOME" \
 
 Stock Codex opens its startup hook review when a definition needs approval.
 Choose **Review Hooks**, inspect the command and source path, and trust the
-`UserPromptSubmit` hook from
-`apple-appdev-workflow@apple-developer-tools`. If the startup review has
+`UserPromptSubmit` and `Stop` hooks from
+`apple-appdev-workflow@apple-developer-tools`. `UserPromptSubmit` injects the
+deterministic top-level owner; `Stop` validates the final output contract and
+can request one correction pass without looping. If the startup review has
 already been dismissed, enter `/hooks` to open the same browser. For version
-`0.2.0`, the expected definition is:
+`0.2.0`, the previously qualified routing definition was:
 
 ```text
 command: node "$PLUGIN_ROOT/hooks/apple_router.mjs"
 hash: sha256:1c82a273ee2e6d13245f8ade4bff516ecb8d46b623c96c22e4e572a8edb87711
 ```
 
-Do not approve a different command, source identity, or hash without reviewing
+The dual-hook repair changes the hook definition and therefore requires fresh
+trust hashes from the exact replacement DMG. Do not reuse the historical hash
+for that package. Record both hashes during exact-candidate qualification, and
+do not approve a different command, source identity, or hash without reviewing
 the changed package. Quit the TUI after approval, start Xcode, create a fresh
 Codex conversation, and confirm the first Apple-development prompt produces
-the expected orchestrator-led route.
+the expected orchestrator-led route and a malformed final answer receives at
+most one correction pass.
 
 ## Optional Primary-Agent Canary
 
@@ -171,7 +178,7 @@ and only then signs the installer app.
   fresh Xcode CodingAssistant smoke after install before claiming that exact
   package is host-validated.
 - Hook discovery does not imply hook trust. Complete the explicit stock Codex
-  hook review before the live Xcode smoke.
+  review for both lifecycle hooks before the live Xcode smoke.
 - The `xcode-headless` manifest must omit plugin-managed `mcpServers` and retired
   `routerSelection`; Xcode owns the native tool surface while the hook retains
   deterministic workflow ownership.

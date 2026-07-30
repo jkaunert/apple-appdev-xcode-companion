@@ -302,6 +302,7 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
   CORE_FILES=(
     "hooks/hooks.json"
     "hooks/apple_router.mjs"
+    "hooks/apple_contract_guard.mjs"
     "routing/router-policy.json"
     "routing/top-level-owner-kernel.md"
   )
