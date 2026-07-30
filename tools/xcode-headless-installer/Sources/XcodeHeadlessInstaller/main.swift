@@ -1062,7 +1062,7 @@ func runInteractiveInstaller() -> Int32 {
         information: """
         Quit Xcode before continuing.
 
-        This installs and enables the xcode-headless plugin profile in Xcode's separate Codex home. It does not replace Xcode's Codex agent or pre-trust the UserPromptSubmit hook.
+        This installs and enables the xcode-headless plugin profile in Xcode's separate Codex home. It does not replace Xcode's Codex agent or pre-trust either lifecycle hook: UserPromptSubmit or Stop.
         """,
         style: .informational,
         primaryButton: "Install",
@@ -1082,7 +1082,7 @@ func runInteractiveInstaller() -> Int32 {
             information: """
             Apple AppDev Workflow is enabled for Xcode. Xcode's active Codex agent was not changed.
 
-            Before opening Xcode, review and trust the UserPromptSubmit hook with stock Codex.
+            Before opening Xcode, use stock Codex to review and trust each lifecycle hook: UserPromptSubmit and Stop.
 
             Rollback backup:
             \(backupPath)

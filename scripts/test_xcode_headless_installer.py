@@ -135,6 +135,25 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
         )
         self.assertIn("try installPackagedPluginProfile(options: options)", source)
 
+    def test_interactive_install_copy_requires_reviewing_both_lifecycle_hooks(
+        self,
+    ) -> None:
+        source = SOURCE.read_text()
+
+        self.assertIn(
+            "pre-trust either lifecycle hook: UserPromptSubmit or Stop.",
+            source,
+        )
+        self.assertIn(
+            "review and trust each lifecycle hook: UserPromptSubmit and Stop.",
+            source,
+        )
+        self.assertNotIn("pre-trust the UserPromptSubmit hook.", source)
+        self.assertNotIn(
+            "review and trust the UserPromptSubmit hook with stock Codex.",
+            source,
+        )
+
     def test_plugin_profile_dry_run_never_mutates_xcode_home(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
