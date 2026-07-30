@@ -4,15 +4,23 @@
   "decision": "ready-only-for-narrower-distribution",
   "candidate": {
     "version": "0.2.0",
-    "companion_source_commit": "f1083157624fc381328dc246abd9686827ecd2d4",
+    "app_build": "3",
+    "companion_source_commit": "7b236ef06b8d6e7f8453a66d23cd8bc0055a155a",
     "companion_source_dirty_at_package_time": false,
     "plugin_source_commit": "b176905b88ac3b21827f088d8a8c1b5b4c044a23",
-    "dmg_sha256": "b9d0bcae86d335ff88401f69f03824d18e6e4c67f16a5a66a05d44d5cd9854fc",
-    "installer_executable_sha256": "245f6d46c8f46f8c2965ff8f262a62ea933e64d8026cf3d816a17acfac2f9db7",
+    "dmg_sha256": "7e29121fd151e27d727911ee77012b0ff0e854b9eef1a923307714069c9549dd",
+    "installer_executable_sha256": "9aa24ca130dde17bef1440925462708c92c14570db3462d6e8f5e9bb4050c2f7",
     "plugin_manifest_sha256": "0b52bbc68aa8d534124d66b8f3ea5c7307bd020d103ababa5e74b0de2e5c5f9d",
     "routing_core_sha256": "565f1089fadaa4594a8d97f473610a3783a0f5e3c99f35c9123c02facf5e4257",
-    "notary_submission_id": "e27839d6-60b7-479a-8be0-cc3168c278f8",
+    "notary_submission_id": "613937d6-6c4c-4176-a071-67e0a6e8ffe9",
     "notary_status": "Accepted"
+  },
+  "supersedes": {
+    "reason": "build 2 named only UserPromptSubmit in its native confirmation and completion dialogs",
+    "companion_source_commit": "f1083157624fc381328dc246abd9686827ecd2d4",
+    "dmg_sha256": "b9d0bcae86d335ff88401f69f03824d18e6e4c67f16a5a66a05d44d5cd9854fc",
+    "installer_executable_sha256": "245f6d46c8f46f8c2965ff8f262a62ea933e64d8026cf3d816a17acfac2f9db7",
+    "notary_submission_id": "e27839d6-60b7-479a-8be0-cc3168c278f8"
   },
   "hook_trust": {
     "user_prompt_submit": "sha256:1c82a273ee2e6d13245f8ade4bff516ecb8d46b623c96c22e4e572a8edb87711",
@@ -35,8 +43,23 @@
     "matrix_report_sha256": "a78a999e0a8f9a5aeb4ae9902d31f8965daf9f4d54ae466b8aa7c13c6435aa90",
     "derived_matrix_manifest_sha256": "08d4035a12ac6b9f4845d4040224ac19ff22e382502e177273ebbfbcdc274a4e"
   },
+  "manual_ui": {
+    "installed_from_exact_build_3_dmg": true,
+    "confirmation_names_both_lifecycle_hooks": true,
+    "completion_names_both_lifecycle_hooks": true,
+    "voiceover_gesture_walkthrough": "pass",
+    "voiceover_restored_off": true,
+    "rollback_backup": "/Users/joshuakaunert/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.0-plugin-install-20260730T234612Z",
+    "evidence": {
+      "confirmation_voiceover_sha256": "e2afa9c22e35a177b34446401020003b5fee3223da0540a14521fad90779b543",
+      "install_button_voiceover_sha256": "2364c8b1aa2ad5483896a4b81dabf60e2c891e002bb9fd59dc97a13c8b8e5900",
+      "completion_voiceover_sha256": "40e289bb7b6094f6e36642eda5d1710711f487b4a7b5b3571fcf76c4f692c494",
+      "done_button_voiceover_sha256": "1325d58a793a3ccf455d83e4271afcc28da7176a70948043e361499598709064",
+      "voiceover_restored_off_sha256": "b7d816462742581137f64c9b44dc0a2133906eab30b3c5f463347b42d9b77626"
+    }
+  },
   "validation": {
-    "installer_test_count": 16,
+    "installer_test_count": 17,
     "installer_tests": "pass",
     "swift_typecheck": "pass",
     "shell_syntax": "pass",
@@ -45,14 +68,18 @@
     "gatekeeper_app": "pass",
     "stapler": "pass",
     "installed_profile_hash_match": "pass",
-    "fresh_xcode_host_route": "pass",
+    "native_finder_install": "pass",
+    "voiceover_gesture_walkthrough": "pass",
+    "dual_hook_dialog_copy": "pass",
+    "fresh_xcode_host_route": "pass-carried-forward-for-identical-routing-payload",
+    "preserved_xcode_matrix_rescore": "pass-9-of-9",
     "top_level_stop_correction": "pass"
   },
   "remaining_limits": [
     "public plugin repository frozen during judging",
     "hook trust is an explicit user action",
-    "dual-hook Finder dialog flow not manually repeated",
-    "manual VoiceOver gesture walkthrough pending",
-    "older supported macOS pass pending"
+    "fresh Xcode-host conversation not repeated for installer-copy-only build 3",
+    "older supported macOS pass pending",
+    "companion release packet prepared but not published"
   ]
 }

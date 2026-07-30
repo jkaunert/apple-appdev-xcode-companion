@@ -2,22 +2,29 @@
 
 ## Candidate
 
-The qualified private dual-hook candidate is:
+The current private dual-hook candidate is:
 
 ```text
 version: 0.2.0
-companion source commit: f1083157624fc381328dc246abd9686827ecd2d4
+app build: 3
+companion source commit: 7b236ef06b8d6e7f8453a66d23cd8bc0055a155a
 companion source dirty at package time: false
 plugin source commit: b176905b88ac3b21827f088d8a8c1b5b4c044a23
 DMG: AppleAppDevXcodeHeadlessInstaller-0.2.0.dmg
-DMG SHA-256: b9d0bcae86d335ff88401f69f03824d18e6e4c67f16a5a66a05d44d5cd9854fc
-installer executable SHA-256: 245f6d46c8f46f8c2965ff8f262a62ea933e64d8026cf3d816a17acfac2f9db7
+DMG SHA-256: 7e29121fd151e27d727911ee77012b0ff0e854b9eef1a923307714069c9549dd
+installer executable SHA-256: 9aa24ca130dde17bef1440925462708c92c14570db3462d6e8f5e9bb4050c2f7
 Developer ID: Joshua Kaunert (HSRQC9N69B)
-notary submission: e27839d6-60b7-479a-8be0-cc3168c278f8
+notary submission: 613937d6-6c4c-4176-a071-67e0a6e8ffe9
 notary status: Accepted
 plugin manifest SHA-256: 0b52bbc68aa8d534124d66b8f3ea5c7307bd020d103ababa5e74b0de2e5c5f9d
 routing core SHA-256: 565f1089fadaa4594a8d97f473610a3783a0f5e3c99f35c9123c02facf5e4257
 ```
+
+Build 3 supersedes the earlier notarized package from companion commit
+`f1083157624fc381328dc246abd9686827ecd2d4`. That package named only
+`UserPromptSubmit` in its native confirmation and completion dialogs. The
+replacement changes only those two sentences and adds a source-contract
+regression test. The embedded profile and routing-core hashes are unchanged.
 
 Gatekeeper accepted both the DMG and its mounted installer app as notarized
 Developer ID software. Strict deep code-signature verification, DMG stapler
@@ -29,11 +36,12 @@ retired `routerSelection`.
 
 ## Installer Gates
 
-- All 16 focused installer tests passed.
+- All 17 focused installer tests passed.
 - Swift type-checking and shell syntax checks passed.
 - The mounted embedded profile was byte-identical to the clean render from the
   pinned plugin source commit and passed bundle validation.
-- Exact-package dry-run and install completed from the mounted notarized DMG.
+- Exact-package dry-run and native Finder install completed from the mounted
+  notarized DMG.
 - The installed profile matched the rendered payload hashes.
 - Installation activated
   `apple-appdev-workflow@apple-developer-tools`, disabled the conflicting
@@ -46,7 +54,41 @@ retired `routerSelection`.
 The exact install rollback snapshot is:
 
 ```text
-/Users/joshuakaunert/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.0-plugin-install-20260730T070446Z
+/Users/joshuakaunert/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.0-plugin-install-20260730T234612Z
+```
+
+## Native Finder And VoiceOver Gate
+
+The exact build-3 DMG was mounted after its executable hash was matched to the
+sidecar manifest. Xcode was closed for the complete install transaction.
+
+The confirmation alert visibly and accessibly disclosed:
+
+```text
+It does not replace Xcode's Codex agent or pre-trust either lifecycle hook:
+UserPromptSubmit or Stop.
+```
+
+VoiceOver announced the alert and informative text, then reached `Cancel,
+button` and `Install, default, button`. `Install` was activated with the
+VoiceOver gesture. The completion alert visibly and accessibly disclosed:
+
+```text
+Before opening Xcode, use stock Codex to review and trust each lifecycle hook:
+UserPromptSubmit and Stop.
+```
+
+VoiceOver reached `Copy Rollback Path, button` and `Done, default, button`.
+After `Done`, the installer exited and VoiceOver was restored to off.
+
+Selected screenshot hashes:
+
+```text
+confirmation with VoiceOver: e2afa9c22e35a177b34446401020003b5fee3223da0540a14521fad90779b543
+Install button with VoiceOver: 2364c8b1aa2ad5483896a4b81dabf60e2c891e002bb9fd59dc97a13c8b8e5900
+completion with VoiceOver: 40e289bb7b6094f6e36642eda5d1710711f487b4a7b5b3571fcf76c4f692c494
+Done button with VoiceOver: 1325d58a793a3ccf455d83e4271afcc28da7176a70948043e361499598709064
+VoiceOver restored off: b7d816462742581137f64c9b44dc0a2133906eab30b3c5f463347b42d9b77626
 ```
 
 ## Hook Trust
@@ -68,8 +110,10 @@ were unchanged. A clean home still requires review of both.
 
 ## Stock Xcode Gate
 
-The exact installed payload was evaluated with Xcode 27.0 build `27A5209h`
-and stock `codex-cli 0.140.0`.
+The routing payload embedded in build 3 is byte-identical to the payload
+evaluated with Xcode 27.0 build `27A5209h` and stock `codex-cli 0.140.0`.
+The exact installed build-3 profile was rechecked before the preserved matrix
+was rescored.
 
 ### Exact-home correction smoke
 
@@ -123,9 +167,9 @@ selected owner is `apple-appdev-workflow:apple-app-orchestrator`.
 
 ### Preserved matrix
 
-The immutable nine-case Xcode host matrix was rescored against the newly
-installed `apple-developer-tools/0.2.0` payload. All nine cases passed with zero
-scorer errors:
+The immutable nine-case Xcode host matrix was rescored again against the exact
+build-3-installed `apple-developer-tools/0.2.0` payload. All nine cases passed
+with zero scorer errors:
 
 1. natural Apple request
 2. plugin chip
@@ -144,6 +188,12 @@ preflight before case scoring. The derived qualification manifest changed only
 `apple-developer-tools/apple-appdev-workflow/0.2.0` path; the immutable session,
 conversation, trust-transition, and attribution evidence remained unchanged.
 
+The regenerated build-3 report has SHA-256
+`a78a999e0a8f9a5aeb4ae9902d31f8965daf9f4d54ae466b8aa7c13c6435aa90`,
+which is byte-identical to the prior passing report. This is evidence that the
+installed routing payload stayed unchanged; it is not a new Xcode-host
+conversation.
+
 ## Distribution Decision
 
 This candidate is **ready only for narrower distribution** from the private
@@ -154,13 +204,12 @@ The current limitations are:
 - the public `jkaunert/apple-appdev-workflow` repository remains frozen for the
   Build Week judging window;
 - hook trust remains an explicit post-install user action;
-- the exact dual-hook candidate passed command-line install, stock-agent, and
-  Xcode-host routing checks, but its native Finder dialog flow was not manually
-  repeated after the dual-hook payload change;
-- a manual VoiceOver gesture walkthrough and older-supported-macOS pass remain
-  pending; and
-- a public companion release and cross-link should be created independently,
-  followed by a public-plugin documentation PR after the freeze ends.
+- the exact build-3 package passed native Finder and VoiceOver installation,
+  but a fresh Xcode-host conversation has not yet been captured for this
+  installer-copy-only rebuild;
+- an older-supported-macOS pass remains pending; and
+- the independent companion release packet is prepared but no tag, GitHub
+  release, or repository-visibility change has been published.
 
 The package must not be described as replacing Xcode's Codex agent. It installs
 only the validated `xcode-headless` plugin profile and leaves the stock agent

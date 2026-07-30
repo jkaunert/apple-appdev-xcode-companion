@@ -23,12 +23,12 @@ The extracted installer tree is byte-identical to the tree used by the earlier
 0.2.0 package-qualification commit
 `952f2a5761c4beaad835b6b8ec34ae53136e44b0`.
 
-## Current dual-hook qualification
+## Current build-3 qualification
 
-The qualified dual-hook DMG was built from clean companion commit:
+The current signed and notarized DMG was built from clean companion commit:
 
 ```text
-f1083157624fc381328dc246abd9686827ecd2d4
+7b236ef06b8d6e7f8453a66d23cd8bc0055a155a
 ```
 
 Its embedded `xcode-headless` profile was rendered from clean private Apple
@@ -38,8 +38,14 @@ AppDev Workflow commit:
 b176905b88ac3b21827f088d8a8c1b5b4c044a23
 ```
 
-The post-package evidence and documentation changes intentionally do not alter
-that source pair. Exact hashes and host evidence are recorded in
+Build 3 supersedes the earlier package from companion commit
+`f1083157624fc381328dc246abd9686827ecd2d4`. That package's native
+confirmation and completion dialogs named only `UserPromptSubmit`, even though
+the embedded profile contained both lifecycle hooks. Commit `7b236ef` corrects
+only those two user-facing sentences and adds regression coverage; the
+embedded profile and routing-core hashes are unchanged.
+
+Exact artifact hashes, manual UI evidence, and host evidence are recorded in
 `docs/qualification/dual-hook-0.2.0-20260730.json`.
 
 ## Distribution boundary

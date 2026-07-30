@@ -15,14 +15,17 @@ CodingAssistant Codex home without changing Xcode's active Codex agent.
   `c30409e917a5bcdb02010c0b78b4971c2b3fa42a`
 - dual-hook replacement candidate pinned to private Apple AppDev Workflow commit
   `b176905b88ac3b21827f088d8a8c1b5b4c044a23`
-- signed and notarized dual-hook companion source commit
-  `f1083157624fc381328dc246abd9686827ecd2d4`, qualified for narrower
-  distribution against stock Xcode 27.0 build `27A5209h`
+- signed and notarized build-3 companion source commit
+  `7b236ef06b8d6e7f8453a66d23cd8bc0055a155a`, qualified for narrower
+  distribution after exact-DMG Finder installation, a VoiceOver gesture
+  walkthrough, and a 9/9 preserved Xcode host matrix rescore
 - paired public plugin release: `jkaunert/apple-appdev-workflow` `v0.2.0`
 - public plugin release commit:
   `c3702d917fedaa6674a750695d3173e36d714522`
 - exact artifact hashes, hook trust state, and stock-host evidence are in
   [release qualification](docs/RELEASE_QUALIFICATION.md)
+- the independent tag, asset, and release-body handoff is in the
+  [0.2.0 release packet](docs/RELEASE_PACKET_0.2.0.md)
 - the public plugin repository remains frozen during the Build Week judging
   window and is not modified by companion development
 
