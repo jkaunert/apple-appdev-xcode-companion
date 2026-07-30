@@ -14,13 +14,14 @@ CodingAssistant Codex home without changing Xcode's active Codex agent.
 - source imported from private Apple AppDev Workflow commit
   `c30409e917a5bcdb02010c0b78b4971c2b3fa42a`
 - dual-hook replacement candidate pinned to private Apple AppDev Workflow commit
-  `b176905b88ac3b21827f088d8a8c1b5b4c044a23`; it remains unqualified pending
-  exact-package signing, trust, and live-host validation
+  `b176905b88ac3b21827f088d8a8c1b5b4c044a23`
+- signed and notarized dual-hook companion source commit
+  `f1083157624fc381328dc246abd9686827ecd2d4`, qualified for narrower
+  distribution against stock Xcode 27.0 build `27A5209h`
 - paired public plugin release: `jkaunert/apple-appdev-workflow` `v0.2.0`
 - public plugin release commit:
   `c3702d917fedaa6674a750695d3173e36d714522`
-- signed and notarized `0.2.0` candidate qualified against stock Xcode 27.0
-  build `27A5209h`; see
+- exact artifact hashes, hook trust state, and stock-host evidence are in
   [release qualification](docs/RELEASE_QUALIFICATION.md)
 - the public plugin repository remains frozen during the Build Week judging
   window and is not modified by companion development
@@ -48,10 +49,10 @@ validated restore path, and leaves
 
 Lifecycle-hook trust remains an explicit user decision. The installer does not
 pre-trust the embedded `UserPromptSubmit` routing hook or `Stop` contract
-guard. After installation, review and trust both with stock Codex's hook
-browser before restarting Xcode; the exact
-procedure is documented in the
-[installer guide](tools/xcode-headless-installer/README.md#review-and-trust-the-hooks).
+guard. On a clean Xcode Codex home, review and trust both. On an upgraded home,
+the unchanged `UserPromptSubmit` command may retain its prior trust while the
+new `Stop` command still requires review. The exact procedure is documented in
+the [installer guide](tools/xcode-headless-installer/README.md#review-and-trust-the-hooks).
 
 ## Development
 

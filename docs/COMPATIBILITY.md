@@ -12,19 +12,20 @@ private source commit: c30409e917a5bcdb02010c0b78b4971c2b3fa42a
 dual-hook candidate source commit: b176905b88ac3b21827f088d8a8c1b5b4c044a23
 ```
 
-The last qualified single-hook `xcode-headless` profile preserved these
-payload hashes:
+The qualified dual-hook `xcode-headless` profile preserves these payload
+hashes:
 
 ```text
-.codex-plugin/plugin.json: e60578bf493e0d940419f0082c45516cd84e9ea1b0398542dbb81ee01a225585
-routing core: 9f7a0f4b9d9d5fec5cde9b01a274d5eb7ec7a4cdd147294e66896a1f804536c6
+.codex-plugin/plugin.json: 0b52bbc68aa8d534124d66b8f3ea5c7307bd020d103ababa5e74b0de2e5c5f9d
+hooks/hooks.json: 0451510d0746ff745b246cb41d57fd99faa74153e13486a3af8320d6de10793e
+hooks/apple_router.mjs: 8195ca4054b68d9b8815acd38b85cee6a6af7c809fc2e974ba1448255dc657c2
+hooks/apple_contract_guard.mjs: 895cef34b9c45ca0ae5557fccde5693854def4d33734acd621494e5090dadfe8
+routing core: 565f1089fadaa4594a8d97f473610a3783a0f5e3c99f35c9123c02facf5e4257
 ```
 
 The routing core hash is the package manifest's aggregate for the hooks,
-neutral policy, and top-level owner kernel. The current dual-hook repair adds
-`hooks/apple_contract_guard.mjs`, so the hashes above are historical and must
-not be used to qualify a replacement package. Replacement hashes must be
-generated from the exact final DMG sidecar before installation.
+neutral policy, and top-level owner kernel. These values came from the exact
+signed and notarized DMG sidecar and matched the installed Xcode profile.
 
 The previously qualified `UserPromptSubmit` hook definition had this stock
 Codex trust hash:
@@ -33,8 +34,16 @@ Codex trust hash:
 sha256:1c82a273ee2e6d13245f8ade4bff516ecb8d46b623c96c22e4e572a8edb87711
 ```
 
-The repaired profile contains both `UserPromptSubmit` and `Stop`; both require
-fresh exact-package trust hashes and explicit review. The installer
+The repaired profile contains both `UserPromptSubmit` and `Stop`. The routing
+command definition is unchanged, so an upgraded Xcode Codex home can retain
+the qualified `UserPromptSubmit` trust hash above. The new `Stop` command
+definition has this exact-candidate trust hash:
+
+```text
+sha256:0ed272c8c1d1eb54f0342f83d3cb690a70448b72397b3fd1c53ffd191cc6bc78
+```
+
+Clean homes still require explicit review of both commands. The installer
 intentionally does not add either hash to `hooks.state`.
 
 The companion installs and enables only the `apple-developer-tools` identity

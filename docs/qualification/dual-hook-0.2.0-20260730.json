@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "qualified_at": "2026-07-30",
+  "decision": "ready-only-for-narrower-distribution",
+  "candidate": {
+    "version": "0.2.0",
+    "companion_source_commit": "f1083157624fc381328dc246abd9686827ecd2d4",
+    "companion_source_dirty_at_package_time": false,
+    "plugin_source_commit": "b176905b88ac3b21827f088d8a8c1b5b4c044a23",
+    "dmg_sha256": "b9d0bcae86d335ff88401f69f03824d18e6e4c67f16a5a66a05d44d5cd9854fc",
+    "installer_executable_sha256": "245f6d46c8f46f8c2965ff8f262a62ea933e64d8026cf3d816a17acfac2f9db7",
+    "plugin_manifest_sha256": "0b52bbc68aa8d534124d66b8f3ea5c7307bd020d103ababa5e74b0de2e5c5f9d",
+    "routing_core_sha256": "565f1089fadaa4594a8d97f473610a3783a0f5e3c99f35c9123c02facf5e4257",
+    "notary_submission_id": "e27839d6-60b7-479a-8be0-cc3168c278f8",
+    "notary_status": "Accepted"
+  },
+  "hook_trust": {
+    "user_prompt_submit": "sha256:1c82a273ee2e6d13245f8ade4bff516ecb8d46b623c96c22e4e572a8edb87711",
+    "stop": "sha256:0ed272c8c1d1eb54f0342f83d3cb690a70448b72397b3fd1c53ffd191cc6bc78"
+  },
+  "stock_xcode": {
+    "xcode_version": "27.0",
+    "xcode_build": "27A5209h",
+    "codex_cli_version": "0.140.0",
+    "codex_agent_sha256": "ffcb8ff096c48bb124a66006346cfbbd65fb8d67d4424e51a4f7ace4322fb03c",
+    "exact_home_correction_session_id": "019fb1db-47fb-75b0-a834-0a2e5b747d2e",
+    "exact_home_correction_session_sha256": "f3e9d7805b2213c190d56726f2627f31057bd5bf16faadb60de8abc458b56c62",
+    "xcode_host_session_id": "019fb1e1-bdf1-7693-b5de-92243197bfa5",
+    "xcode_host_session_sha256": "4a3849a677f56fbd5028937c6d3c5eea8397ede5f39a2159222dd4162d8aef2f",
+    "xcode_conversation_id": "3AD6E5A3-3198-48DA-A480-E3A19D04B910",
+    "xcode_conversation_sha256": "6cdcffe98bf78b2e11b4530602bfd19075e2d39f7af2e28091a3ea7555a9f796",
+    "xcode_metadata_sha256": "e461ce1ffea1f489440219f5c2a8ce9f6294f06f94a107bf93fb8ea01cc7f1aa",
+    "matrix_case_count": 9,
+    "matrix_result": "pass",
+    "matrix_report_sha256": "a78a999e0a8f9a5aeb4ae9902d31f8965daf9f4d54ae466b8aa7c13c6435aa90",
+    "derived_matrix_manifest_sha256": "08d4035a12ac6b9f4845d4040224ac19ff22e382502e177273ebbfbcdc274a4e"
+  },
+  "validation": {
+    "installer_test_count": 16,
+    "installer_tests": "pass",
+    "swift_typecheck": "pass",
+    "shell_syntax": "pass",
+    "codesign": "pass",
+    "gatekeeper_dmg": "pass",
+    "gatekeeper_app": "pass",
+    "stapler": "pass",
+    "installed_profile_hash_match": "pass",
+    "fresh_xcode_host_route": "pass",
+    "top_level_stop_correction": "pass"
+  },
+  "remaining_limits": [
+    "public plugin repository frozen during judging",
+    "hook trust is an explicit user action",
+    "dual-hook Finder dialog flow not manually repeated",
+    "manual VoiceOver gesture walkthrough pending",
+    "older supported macOS pass pending"
+  ]
+}

@@ -122,27 +122,35 @@ CODEX_HOME="$XCODE_CODEX_HOME" \
 ```
 
 Stock Codex opens its startup hook review when a definition needs approval.
-Choose **Review Hooks**, inspect the command and source path, and trust the
-`UserPromptSubmit` and `Stop` hooks from
-`apple-appdev-workflow@apple-developer-tools`. `UserPromptSubmit` injects the
-deterministic top-level owner; `Stop` validates the final output contract and
-can request one correction pass without looping. If the startup review has
-already been dismissed, enter `/hooks` to open the same browser. For version
-`0.2.0`, the previously qualified routing definition was:
+Choose **Review Hooks**, inspect the command and source path, and trust each
+new or changed hook from `apple-appdev-workflow@apple-developer-tools`.
+`UserPromptSubmit` injects the deterministic top-level owner; `Stop` validates
+the top-level owner's final output contract and can request one correction
+pass without looping. If the startup review has already been dismissed, enter
+`/hooks` to open the same browser. For the qualified dual-hook version `0.2.0`,
+the routing definition is:
 
 ```text
 command: node "$PLUGIN_ROOT/hooks/apple_router.mjs"
 hash: sha256:1c82a273ee2e6d13245f8ade4bff516ecb8d46b623c96c22e4e572a8edb87711
 ```
 
-The dual-hook repair changes the hook definition and therefore requires fresh
-trust hashes from the exact replacement DMG. Do not reuse the historical hash
-for that package. Record both hashes during exact-candidate qualification, and
-do not approve a different command, source identity, or hash without reviewing
-the changed package. Quit the TUI after approval, start Xcode, create a fresh
-Codex conversation, and confirm the first Apple-development prompt produces
-the expected orchestrator-led route and a malformed final answer receives at
-most one correction pass.
+The routing definition did not change, so an upgraded home may already trust
+it. The new final-contract guard is:
+
+```text
+command: node "$PLUGIN_ROOT/hooks/apple_contract_guard.mjs"
+hash: sha256:0ed272c8c1d1eb54f0342f83d3cb690a70448b72397b3fd1c53ffd191cc6bc78
+```
+
+On a clean home, review both. On an upgraded home, stock Codex may present only
+`Stop` as new. Do not approve a different command, source identity, or hash
+without reviewing the changed package. Quit the TUI after approval, start
+Xcode, create a fresh Codex conversation, and confirm the first broad
+Apple-development prompt produces the expected orchestrator-led route. The
+`Stop` guard intentionally applies only when
+`apple-appdev-workflow:apple-app-orchestrator` is the selected owner; focused
+explicit specialists retain their own output contracts.
 
 ## Optional Primary-Agent Canary
 

@@ -23,6 +23,25 @@ The extracted installer tree is byte-identical to the tree used by the earlier
 0.2.0 package-qualification commit
 `952f2a5761c4beaad835b6b8ec34ae53136e44b0`.
 
+## Current dual-hook qualification
+
+The qualified dual-hook DMG was built from clean companion commit:
+
+```text
+f1083157624fc381328dc246abd9686827ecd2d4
+```
+
+Its embedded `xcode-headless` profile was rendered from clean private Apple
+AppDev Workflow commit:
+
+```text
+b176905b88ac3b21827f088d8a8c1b5b4c044a23
+```
+
+The post-package evidence and documentation changes intentionally do not alter
+that source pair. Exact hashes and host evidence are recorded in
+`docs/qualification/dual-hook-0.2.0-20260730.json`.
+
 ## Distribution boundary
 
 The corresponding public Marketplace release is:
