@@ -27,6 +27,21 @@ The routing core hash is the package manifest's aggregate for the hooks,
 neutral policy, and top-level owner kernel. These values came from the exact
 signed and notarized DMG sidecar and matched the installed Xcode profile.
 
+The build-4 installer executable is compiled with:
+
+```text
+-target arm64-apple-macosx15.0
+```
+
+Its app metadata and Mach-O load command both declare macOS 15.0 as the
+minimum. The exact notarized artifact launched and completed a transactional
+install on macOS 15.7.8 build `24G824`, and it was also installed and exercised
+through Xcode 27.0 build `27A5209h` on macOS 26.5.1 build `25F80`.
+
+The superseded build-3 executable must not be distributed. Although its app
+metadata declared macOS 15.0, Swift had compiled it for macOS 26.0 and its
+`libswift_DarwinFoundation2.dylib` dependency prevented launch on macOS 15.
+
 The previously qualified `UserPromptSubmit` hook definition had this stock
 Codex trust hash:
 

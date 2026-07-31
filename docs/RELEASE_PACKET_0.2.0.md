@@ -1,6 +1,6 @@
 # Apple AppDev Xcode Companion 0.2.0 Release Packet
 
-Status: prepared, not published.
+Status: technically qualified, not published.
 
 ## Proposed Release
 
@@ -8,13 +8,14 @@ Status: prepared, not published.
 repository: jkaunert/apple-appdev-xcode-companion
 tag: v0.2.0
 title: Apple AppDev Xcode Companion 0.2.0
-source commit: 7b236ef06b8d6e7f8453a66d23cd8bc0055a155a
+source commit: d8f83d1fa0d661aa1c01a1138c0e156bf4929d5d
 app version: 0.2.0
-app build: 3
+app build: 4
+minimum macOS: 15.0
 ```
 
 The current GitHub repository is private. Do not publish the tag or release,
-or change repository visibility, until the remaining release decision is made
+or change repository visibility, until that distribution decision is made
 explicitly.
 
 ## Release Assets
@@ -22,7 +23,7 @@ explicitly.
 Upload these three files from:
 
 ```text
-/Users/joshuakaunert/Developer/apple-appdev-xcode-companion/build/releases/dual-hook-copy-fix-b176905-7b236ef/
+/Users/joshuakaunert/Developer/apple-appdev-xcode-companion/build/releases/macos15-deployment-fix-b176905-d8f83d1/
 ```
 
 ```text
@@ -34,13 +35,16 @@ AppleAppDevXcodeHeadlessInstaller-0.2.0.dmg.notary.json
 Artifact identity:
 
 ```text
-DMG SHA-256: 7e29121fd151e27d727911ee77012b0ff0e854b9eef1a923307714069c9549dd
-installer executable SHA-256: 9aa24ca130dde17bef1440925462708c92c14570db3462d6e8f5e9bb4050c2f7
-notary submission: 613937d6-6c4c-4176-a071-67e0a6e8ffe9
+DMG SHA-256: d604a00bbc2a930326d7fe3f4c30fea0725da1b370c1f8bb07791793539a130a
+installer executable SHA-256: 928ba2019f642a56d8fef7ff586e8eeffa56cfbd22898aaab3cda21ddb1e66de
+notary submission: 7cb7664a-2bd5-427a-aacb-5754e9f94511
 notary status: Accepted
 plugin manifest SHA-256: 0b52bbc68aa8d534124d66b8f3ea5c7307bd020d103ababa5e74b0de2e5c5f9d
 routing core SHA-256: 565f1089fadaa4594a8d97f473610a3783a0f5e3c99f35c9123c02facf5e4257
 ```
+
+Build 3 must not be uploaded. It passed the host gates but failed to launch on
+macOS 15 because the executable was compiled for macOS 26.
 
 ## Draft Release Body
 
@@ -50,7 +54,7 @@ replace Xcode's Codex agent and does not pre-trust either lifecycle hook.
 
 This release includes:
 
-- a native double-click installation flow;
+- a native double-click installation flow for macOS 15 and later;
 - transactional backup and rollback support;
 - the deterministic `UserPromptSubmit` owner router;
 - the top-level-only `Stop` output-contract guard;
@@ -70,36 +74,46 @@ profile and configuration.
 SHA-256:
 
 ```text
-7e29121fd151e27d727911ee77012b0ff0e854b9eef1a923307714069c9549dd
+d604a00bbc2a930326d7fe3f4c30fea0725da1b370c1f8bb07791793539a130a
 ```
 
 ## Qualification Summary
 
 - 17/17 installer tests passed.
 - Swift type-checking and package-script syntax passed.
-- The build came from a clean companion commit.
+- The build came from clean companion commit `d8f83d1`.
 - The DMG and app passed code-signature verification.
 - Apple notarization was accepted and the ticket was stapled.
-- Gatekeeper accepted the final DMG.
-- The exact DMG completed the native Finder install flow.
-- VoiceOver reached and announced the alert, informative text, Cancel,
-  Install, Copy Rollback Path, and Done controls.
+- Gatekeeper accepted the final DMG and mounted app.
+- The executable declares Mach-O `minos 15.0` and no longer links the
+  macOS-26-only `libswift_DarwinFoundation2.dylib`.
+- The exact DMG launched and completed a transactional install on macOS
+  15.7.8 build `24G824`.
+- The exact DMG completed the native Finder install flow on macOS 26.5.1.
+- VoiceOver was enabled before the build-4 `Install` action and restored to off
+  after completion.
 - Both native dialogs explicitly named `UserPromptSubmit` and `Stop`.
-- The embedded profile was byte-identical to the installed profile.
-- The preserved Xcode host matrix rescored 9/9 with zero errors.
+- The embedded profile was byte-identical to both installed profiles.
+- A fresh post-install Xcode session proved top-level injection and
+  release-contract correction.
+- The preserved Xcode host matrix rescored 9/9 with zero errors against the
+  identical routing payload.
 
 The detailed record is
 [`docs/RELEASE_QUALIFICATION.md`](RELEASE_QUALIFICATION.md).
 
 ## Remaining Go/No-Go Decision
 
-The candidate remains **ready only for narrower distribution** until:
+All declared technical qualification gates are complete. While the companion
+repository remains private, the release outcome is **ready only for narrower
+distribution**.
 
-- a fresh Xcode-host conversation is run against the exact build-3 install, or
-  the release decision explicitly accepts the identical-payload 9/9 rescore as
-  sufficient for this installer-copy-only rebuild; and
-- the older-supported-macOS validation requirement is completed or explicitly
-  removed from the public support claim.
+Public publication requires an explicit decision to:
+
+1. make `jkaunert/apple-appdev-xcode-companion` public;
+2. create tag `v0.2.0` at the exact build source commit
+   `d8f83d1fa0d661aa1c01a1138c0e156bf4929d5d`; and
+3. publish the three build-4 assets above.
 
 The public `jkaunert/apple-appdev-workflow` repository remains frozen through
 the Build Week judging window. Publishing this companion must not modify,

@@ -6,25 +6,20 @@ The current private dual-hook candidate is:
 
 ```text
 version: 0.2.0
-app build: 3
-companion source commit: 7b236ef06b8d6e7f8453a66d23cd8bc0055a155a
+app build: 4
+minimum macOS: 15.0
+companion source commit: d8f83d1fa0d661aa1c01a1138c0e156bf4929d5d
 companion source dirty at package time: false
 plugin source commit: b176905b88ac3b21827f088d8a8c1b5b4c044a23
 DMG: AppleAppDevXcodeHeadlessInstaller-0.2.0.dmg
-DMG SHA-256: 7e29121fd151e27d727911ee77012b0ff0e854b9eef1a923307714069c9549dd
-installer executable SHA-256: 9aa24ca130dde17bef1440925462708c92c14570db3462d6e8f5e9bb4050c2f7
+DMG SHA-256: d604a00bbc2a930326d7fe3f4c30fea0725da1b370c1f8bb07791793539a130a
+installer executable SHA-256: 928ba2019f642a56d8fef7ff586e8eeffa56cfbd22898aaab3cda21ddb1e66de
 Developer ID: Joshua Kaunert (HSRQC9N69B)
-notary submission: 613937d6-6c4c-4176-a071-67e0a6e8ffe9
+notary submission: 7cb7664a-2bd5-427a-aacb-5754e9f94511
 notary status: Accepted
 plugin manifest SHA-256: 0b52bbc68aa8d534124d66b8f3ea5c7307bd020d103ababa5e74b0de2e5c5f9d
 routing core SHA-256: 565f1089fadaa4594a8d97f473610a3783a0f5e3c99f35c9123c02facf5e4257
 ```
-
-Build 3 supersedes the earlier notarized package from companion commit
-`f1083157624fc381328dc246abd9686827ecd2d4`. That package named only
-`UserPromptSubmit` in its native confirmation and completion dialogs. The
-replacement changes only those two sentences and adds a source-contract
-regression test. The embedded profile and routing-core hashes are unchanged.
 
 Gatekeeper accepted both the DMG and its mounted installer app as notarized
 Developer ID software. Strict deep code-signature verification, DMG stapler
@@ -34,6 +29,28 @@ The package contains a physical, symlink-free `xcode-headless` profile and no
 replacement Codex agent, bundled MCP proxy, plugin-managed MCP server, or
 retired `routerSelection`.
 
+## Superseded Build 3
+
+Build 3 from companion commit
+`7b236ef06b8d6e7f8453a66d23cd8bc0055a155a` passed its host UI, signing,
+notarization, and routing checks, but failed the macOS 15 compatibility gate.
+Its executable declared `LSMinimumSystemVersion` 15.0 without compiling Swift
+for that deployment target. On macOS 15.7.8, `dyld` rejected the binary because
+it was built for macOS 26.0 and referenced
+`/usr/lib/swift/libswift_DarwinFoundation2.dylib`.
+
+Commit `d8f83d1fa0d661aa1c01a1138c0e156bf4929d5d` makes
+`--min-system` control both `LSMinimumSystemVersion` and Swift's compile
+target. Build 4 was compiled with:
+
+```text
+-target arm64-apple-macosx15.0
+```
+
+Its Mach-O `LC_BUILD_VERSION` reports `minos 15.0`, and its load commands do
+not reference `libswift_DarwinFoundation2.dylib`. Build 3 must not be
+published.
+
 ## Installer Gates
 
 - All 17 focused installer tests passed.
@@ -41,55 +58,84 @@ retired `routerSelection`.
 - The mounted embedded profile was byte-identical to the clean render from the
   pinned plugin source commit and passed bundle validation.
 - Exact-package dry-run and native Finder install completed from the mounted
-  notarized DMG.
-- The installed profile matched the rendered payload hashes.
+  notarized build-4 DMG.
+- The installed profile matched the embedded payload byte-for-byte.
 - Installation activated
   `apple-appdev-workflow@apple-developer-tools`, disabled the conflicting
   identity in the Xcode home, and left the `LocalAppleWorkflow` cache intact.
+- Both previously reviewed hook trust hashes remained present after the
+  build-4 replacement.
 - The active stock Xcode Codex agent remained the signed `codex-cli 0.140.0`
-  binary selected by Xcode build `27A5209h`.
+  binary selected by Xcode build `27A5209h`, with SHA-256
+  `ffcb8ff096c48bb124a66006346cfbbd65fb8d67d4424e51a4f7ace4322fb03c`.
 - Release packaging bound the artifact to a clean companion commit and would
   have rejected a dirty or non-git source tree.
 
-The exact install rollback snapshot is:
+The exact host-install rollback snapshot is:
 
 ```text
-/Users/joshuakaunert/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.0-plugin-install-20260730T234612Z
+/Users/joshuakaunert/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.0-plugin-install-20260731T004634Z
 ```
+
+## macOS 15 Gate
+
+Build 4 was validated in the retained Tart VM
+`apple-appdev-xcode-companion-0-2-0-macos15-qual-20260730`:
+
+```text
+macOS version: 15.7.8
+macOS build: 24G824
+architecture: arm64
+DMG SHA-256: d604a00bbc2a930326d7fe3f4c30fea0725da1b370c1f8bb07791793539a130a
+installer executable SHA-256: 928ba2019f642a56d8fef7ff586e8eeffa56cfbd22898aaab3cda21ddb1e66de
+```
+
+The exact notarized DMG passed stapler and Gatekeeper checks in the VM. Its
+mounted app passed strict code-signature and Gatekeeper verification. The
+packaged executable ran `--help` and
+`--install-plugin-profile --dry-run`, then completed a real transactional
+profile install.
+
+The VM's installed profile was byte-identical to the DMG's embedded profile,
+the intended plugin identity was enabled, and the rollback snapshot was:
+
+```text
+/Users/admin/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.0-plugin-install-20260731T004508Z
+```
+
+The VM clone was shut down cleanly and retained for reproducibility.
 
 ## Native Finder And VoiceOver Gate
 
-The exact build-3 DMG was mounted after its executable hash was matched to the
+The exact build-4 DMG was mounted after its executable hash was matched to the
 sidecar manifest. Xcode was closed for the complete install transaction.
 
-The confirmation alert visibly and accessibly disclosed:
+The confirmation alert disclosed that the installer:
 
 ```text
-It does not replace Xcode's Codex agent or pre-trust either lifecycle hook:
+does not replace Xcode's Codex agent or pre-trust either lifecycle hook:
 UserPromptSubmit or Stop.
 ```
 
-VoiceOver announced the alert and informative text, then reached `Cancel,
-button` and `Install, default, button`. `Install` was activated with the
-VoiceOver gesture. The completion alert visibly and accessibly disclosed:
+VoiceOver was enabled before `Install` was activated. The completion alert
+reported that Apple AppDev Workflow was enabled, repeated the explicit
+post-install trust requirement for both hooks, and displayed the rollback
+path. `Done` was activated, the installer exited, and VoiceOver was restored
+to off.
+
+Selected build-4 screenshot hashes:
 
 ```text
-Before opening Xcode, use stock Codex to review and trust each lifecycle hook:
-UserPromptSubmit and Stop.
+confirmation before VoiceOver: c8621499f0ec49bef41aba4a74060ada3e3da41556d827b354702962bd2204a6
+confirmation with VoiceOver: a4a0ab165f703cfc4de13a66e30aa6630bd359995b0f1399686b962e2b79ec5a
+completion: 0212beb4529d74aa00db70e12a30bc03d6d04b2bd53959d43db911b06785d021
+VoiceOver restored off: 86ee338cbadbfb36ba6a8b0e017477e6fffc5353b1b2d96863d84f443e40bd26
 ```
 
-VoiceOver reached `Copy Rollback Path, button` and `Done, default, button`.
-After `Done`, the installer exited and VoiceOver was restored to off.
-
-Selected screenshot hashes:
-
-```text
-confirmation with VoiceOver: e2afa9c22e35a177b34446401020003b5fee3223da0540a14521fad90779b543
-Install button with VoiceOver: 2364c8b1aa2ad5483896a4b81dabf60e2c891e002bb9fd59dc97a13c8b8e5900
-completion with VoiceOver: 40e289bb7b6094f6e36642eda5d1710711f487b4a7b5b3571fcf76c4f692c494
-Done button with VoiceOver: 1325d58a793a3ccf455d83e4271afcc28da7176a70948043e361499598709064
-VoiceOver restored off: b7d816462742581137f64c9b44dc0a2133906eab30b3c5f463347b42d9b77626
-```
+The full VoiceOver control-traversal evidence from build 3 remains applicable
+because build 4 changed only the package script's Swift deployment target and
+its regression test. The installer UI source and embedded plugin payload are
+unchanged.
 
 ## Hook Trust
 
@@ -104,50 +150,50 @@ Stop command: node "$PLUGIN_ROOT/hooks/apple_contract_guard.mjs"
 Stop trust hash: sha256:0ed272c8c1d1eb54f0342f83d3cb690a70448b72397b3fd1c53ffd191cc6bc78
 ```
 
-Only `Stop` appeared as a new or changed definition in this upgraded home.
-`UserPromptSubmit` retained trust because its command definition and trust hash
-were unchanged. A clean home still requires review of both.
+The trust hashes were retained across the build-4 replacement because the
+embedded hook definitions are byte-identical. A clean home still requires
+explicit review of both.
 
 ## Stock Xcode Gate
 
-The routing payload embedded in build 3 is byte-identical to the payload
+The routing payload embedded in build 4 is byte-identical to the payload
 evaluated with Xcode 27.0 build `27A5209h` and stock `codex-cli 0.140.0`.
-The exact installed build-3 profile was rechecked before the preserved matrix
-was rescored.
 
 ### Exact-home correction smoke
 
-A non-interactive stock-agent smoke used Xcode's real CodingAssistant Codex
-home without the hook-trust bypass flag. Session
-`019fb1db-47fb-75b0-a834-0a2e5b747d2e` proved the complete correction path:
+The previously recorded non-interactive stock-agent session
+`019fb1db-47fb-75b0-a834-0a2e5b747d2e` proves the complete top-level
+correction path for the same immutable routing payload:
 
 1. `UserPromptSubmit` injected
    `apple-appdev-workflow:apple-app-orchestrator`.
 2. The model emitted the intentionally requested malformed answer `Done`.
-3. The installed `Stop` hook at
-   `apple-developer-tools/apple-appdev-workflow/0.2.0` blocked it once.
+3. `Stop` blocked it once.
 4. The corrected final answer began with `Routing: orchestrator-led` and
    contained a fully qualified `Activated skills` block.
 5. The guard did not loop.
 
-### Fresh Xcode-host smoke
+### Fresh build-4 Xcode-host smoke
 
-A fresh Codex agent conversation was created inside Xcode after installation
-and trust review.
+A fresh Codex agent conversation was created inside Xcode after the exact
+build-4 install:
 
 ```text
-Xcode conversation: 3AD6E5A3-3198-48DA-A480-E3A19D04B910
-Codex session: 019fb1e1-bdf1-7693-b5de-92243197bfa5
-conversationType: assistant
-assistantKind: agent
-modelIdentifier: codex
-app-server PID: 50884
-app-server parent Xcode PID: 31455
+marker: XCODE-BUILD4-NATURAL-RELEASE-SMOKE-20260730-1949
+Xcode conversation: 8CE2A9C1-6E66-4EFD-A7DE-31400D5240BF
+Xcode conversation SHA-256: 02340ea92eee3949b17c26981189937c218a5f11c54e9c9b756f98709d47e63c
+Codex session: 019fb5a6-85a8-7bd1-9c96-98738df510e7
+Codex session SHA-256: 6300453d301e4ee6123e1f02b2798988e5e00b92c8c431f63e20f8f8c6da7d78
+app-server PID: 90572
+app-server parent Xcode PID: 77992
 ```
 
-The broad marked turn `XCODE-DUAL-HOOK-LIVE-SMOKE-20260730-0216` routed to
-`apple-appdev-workflow:apple-app-orchestrator`. Its final answer began with the
-canonical routing line and preserved these fully qualified skills:
+`UserPromptSubmit` injected
+`apple-appdev-workflow:apple-app-orchestrator` before model planning. The
+natural broad ship-readiness prompt activated the release brigade. The first
+draft had the correct skills but did not begin directly with the required
+route block, so `Stop` corrected it once. The final answer began with
+`Routing: orchestrator-led` and preserved these fully qualified skills:
 
 ```text
 apple-appdev-workflow:apple-app-orchestrator
@@ -158,18 +204,13 @@ apple-appdev-workflow:apple-manual-validation
 apple-appdev-workflow:apple-build-release-ops
 ```
 
-The response was already compliant, so `Stop` correctly remained silent. A
-same-conversation focused-specialist control selected
-`apple-appdev-workflow:apple-decision-stress-test` with
-`Routing: explicit-specialist`. Its requested `Done` response was not rewritten
-because final-contract enforcement is intentionally limited to turns whose
-selected owner is `apple-appdev-workflow:apple-app-orchestrator`.
+The session ended with `task_complete`; the guard did not loop.
 
 ### Preserved matrix
 
-The immutable nine-case Xcode host matrix was rescored again against the exact
-build-3-installed `apple-developer-tools/0.2.0` payload. All nine cases passed
-with zero scorer errors:
+The immutable nine-case Xcode host matrix was rescored against the identical
+`apple-developer-tools/0.2.0` routing payload. All nine cases passed with zero
+scorer errors:
 
 1. natural Apple request
 2. plugin chip
@@ -181,35 +222,24 @@ with zero scorer errors:
 8. foreign-plugin negative control
 9. trusted concurrent-hook composition
 
-The historical manifest still named the retired
-`LocalAppleWorkflow/0.1.1` install root. Its first rescore therefore failed
-preflight before case scoring. The derived qualification manifest changed only
-`host.installedPluginRoot` to the installed
-`apple-developer-tools/apple-appdev-workflow/0.2.0` path; the immutable session,
-conversation, trust-transition, and attribution evidence remained unchanged.
-
-The regenerated build-3 report has SHA-256
-`a78a999e0a8f9a5aeb4ae9902d31f8965daf9f4d54ae466b8aa7c13c6435aa90`,
-which is byte-identical to the prior passing report. This is evidence that the
-installed routing payload stayed unchanged; it is not a new Xcode-host
-conversation.
+The regenerated report has SHA-256
+`a78a999e0a8f9a5aeb4ae9902d31f8965daf9f4d54ae466b8aa7c13c6435aa90`.
+This matrix is carried forward by exact embedded-profile hash identity; build 4
+changed only the installer executable's deployment target.
 
 ## Distribution Decision
 
-This candidate is **ready only for narrower distribution** from the private
-companion repository. It is not yet a public launch.
+The build-4 candidate is technically qualified for its declared macOS 15+
+support boundary. While the GitHub repository remains private, the canonical
+release outcome is **ready only for narrower distribution**.
 
-The current limitations are:
+The remaining limitations are:
 
 - the public `jkaunert/apple-appdev-workflow` repository remains frozen for the
   Build Week judging window;
-- hook trust remains an explicit post-install user action;
-- the exact build-3 package passed native Finder and VoiceOver installation,
-  but a fresh Xcode-host conversation has not yet been captured for this
-  installer-copy-only rebuild;
-- an older-supported-macOS pass remains pending; and
-- the independent companion release packet is prepared but no tag, GitHub
-  release, or repository-visibility change has been published.
+- hook trust remains an explicit post-install user action; and
+- no companion tag, GitHub release, or repository-visibility change has been
+  published.
 
 The package must not be described as replacing Xcode's Codex agent. It installs
 only the validated `xcode-headless` plugin profile and leaves the stock agent
