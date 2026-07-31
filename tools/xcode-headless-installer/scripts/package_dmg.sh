@@ -49,7 +49,7 @@ Package options:
   --bundle-id ID            Installer app bundle id.
   --version VERSION         Installer app version. Defaults to plugin version or 0.1.0.
   --build BUILD             Installer app build. Defaults to 1.
-  --min-system VERSION      LSMinimumSystemVersion. Defaults to 15.0.
+  --min-system VERSION      Compile target and LSMinimumSystemVersion. Defaults to 15.0.
   --sign IDENTITY           Developer ID Application signing identity.
   --release                 Require Developer ID signing and hardened runtime.
   --notarize                Submit the signed DMG to Apple, staple, and assess.
@@ -215,6 +215,11 @@ manifest_has_key() {
 [[ -n "$BUNDLE_ID" ]] || { echo "error: --bundle-id cannot be empty" >&2; exit 2; }
 [[ -n "$APP_BUILD" ]] || { echo "error: --build cannot be empty" >&2; exit 2; }
 [[ -n "$MIN_SYSTEM_VERSION" ]] || { echo "error: --min-system cannot be empty" >&2; exit 2; }
+[[ "$MIN_SYSTEM_VERSION" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]] || {
+  echo "error: --min-system must be a macOS version such as 15.0" >&2
+  exit 2
+}
+SWIFT_TARGET="$(uname -m)-apple-macosx${MIN_SYSTEM_VERSION}"
 if [[ "$RELEASE_MODE" == "1" && -z "$SIGN_IDENTITY" ]]; then
   echo "error: --release requires --sign or APPLE_APPDEV_WORKFLOW_CODESIGN_IDENTITY" >&2
   exit 2
@@ -411,7 +416,7 @@ if [[ -n "$NOTARY_PROFILE" ]]; then
 fi
 
 if [[ "$DRY_RUN" == "1" ]]; then
-  echo "dry-run: swiftc -O -o \"$BUILD_BIN\" \"$TOOL_DIR/Sources/XcodeHeadlessInstaller/main.swift\""
+  echo "dry-run: swiftc -O -target \"$SWIFT_TARGET\" -o \"$BUILD_BIN\" \"$TOOL_DIR/Sources/XcodeHeadlessInstaller/main.swift\""
   if [[ -n "$PLUGIN_PROFILE" ]]; then
     echo "dry-run: copy xcode-headless plugin profile into \"$PLUGIN_PAYLOAD_DIR\""
     if [[ -n "$APP_ICON_SOURCE" ]]; then
@@ -441,7 +446,7 @@ mkdir -p "$OUTPUT_DIR"
 rm -rf "$APP_PATH" "$STAGING_DIR" "$OUTPUT_DIR/build" "$ENTITLEMENTS_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR" "$ENTITLEMENTS_DIR" "$OUTPUT_DIR/build" "$STAGING_DIR"
 
-swiftc -O -o "$BUILD_BIN" "$TOOL_DIR/Sources/XcodeHeadlessInstaller/main.swift"
+swiftc -O -target "$SWIFT_TARGET" -o "$BUILD_BIN" "$TOOL_DIR/Sources/XcodeHeadlessInstaller/main.swift"
 cp -p "$BUILD_BIN" "$MACOS_DIR/$APP_EXECUTABLE"
 chmod +x "$MACOS_DIR/$APP_EXECUTABLE"
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import platform
 import subprocess
 import tempfile
 import unittest
@@ -425,6 +426,10 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             self.assertIn("validate --install-plugin-profile", result.stdout)
             self.assertIn("source_commit:", result.stdout)
             self.assertIn("source_dirty:", result.stdout)
+            self.assertIn(
+                f'-target "{platform.machine()}-apple-macosx15.0"',
+                result.stdout,
+            )
             self.assertNotIn("copy runtime payload", result.stdout)
             self.assertFalse(output_dir.exists())
 
