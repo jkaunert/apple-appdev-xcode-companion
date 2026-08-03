@@ -2,7 +2,7 @@
 
 ## Candidate
 
-The current private dual-hook candidate is:
+The published dual-hook release is:
 
 ```text
 version: 0.2.0
@@ -229,17 +229,29 @@ changed only the installer executable's deployment target.
 
 ## Distribution Decision
 
-The build-4 candidate is technically qualified for its declared macOS 15+
-support boundary. While the GitHub repository remains private, the canonical
-release outcome is **ready only for narrower distribution**.
+The build-4 release is technically qualified for its declared macOS 15+
+support boundary. The canonical release outcome is **ready to ship** within
+the documented Xcode host boundary.
+
+Publication was independently verified on 2026-08-03:
+
+```text
+repository visibility: public
+tag: v0.2.0
+annotated tag object: 6dedd63c94b6de6384860a73c29d882b3691f97d
+tag target: d8f83d1fa0d661aa1c01a1138c0e156bf4929d5d
+release: https://github.com/jkaunert/apple-appdev-xcode-companion/releases/tag/v0.2.0
+published at: 2026-08-03T19:49:40Z
+draft: false
+prerelease: false
+downloaded asset identity: pass (3/3 byte-identical)
+```
 
 The remaining limitations are:
 
 - the public `jkaunert/apple-appdev-workflow` repository remains frozen for the
   Build Week judging window;
-- hook trust remains an explicit post-install user action; and
-- no companion tag, GitHub release, or repository-visibility change has been
-  published.
+- hook trust remains an explicit post-install user action.
 
 The package must not be described as replacing Xcode's Codex agent. It installs
 only the validated `xcode-headless` plugin profile and leaves the stock agent

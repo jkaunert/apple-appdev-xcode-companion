@@ -1,8 +1,8 @@
 # Apple AppDev Xcode Companion 0.2.0 Release Packet
 
-Status: technically qualified, not published.
+Status: published and independently verified.
 
-## Proposed Release
+## Published Release
 
 ```text
 repository: jkaunert/apple-appdev-xcode-companion
@@ -12,15 +12,17 @@ source commit: d8f83d1fa0d661aa1c01a1138c0e156bf4929d5d
 app version: 0.2.0
 app build: 4
 minimum macOS: 15.0
+published at: 2026-08-03T19:49:40Z
+release: https://github.com/jkaunert/apple-appdev-xcode-companion/releases/tag/v0.2.0
 ```
 
-The current GitHub repository is private. Do not publish the tag or release,
-or change repository visibility, until that distribution decision is made
-explicitly.
+The public annotated tag dereferences to the exact build source commit above.
+The release is neither a draft nor a prerelease.
 
 ## Release Assets
 
-Upload these three files from:
+The published release contains these three files from the qualified build
+directory:
 
 ```text
 /Users/joshuakaunert/Developer/apple-appdev-xcode-companion/build/releases/macos15-deployment-fix-b176905-d8f83d1/
@@ -102,18 +104,20 @@ d604a00bbc2a930326d7fe3f4c30fea0725da1b370c1f8bb07791793539a130a
 The detailed record is
 [`docs/RELEASE_QUALIFICATION.md`](RELEASE_QUALIFICATION.md).
 
-## Remaining Go/No-Go Decision
+## Publication Record
 
-All declared technical qualification gates are complete. While the companion
-repository remains private, the release outcome is **ready only for narrower
-distribution**.
+All declared technical qualification gates are complete. The public release
+outcome is **ready to ship** within the documented macOS 15+ and Xcode host
+boundary.
 
-Public publication requires an explicit decision to:
+Publication completed on 2026-08-03:
 
-1. make `jkaunert/apple-appdev-xcode-companion` public;
-2. create tag `v0.2.0` at the exact build source commit
-   `d8f83d1fa0d661aa1c01a1138c0e156bf4929d5d`; and
-3. publish the three build-4 assets above.
+1. `jkaunert/apple-appdev-xcode-companion` is public;
+2. annotated tag `v0.2.0` dereferences to exact build source commit
+   `d8f83d1fa0d661aa1c01a1138c0e156bf4929d5d`;
+3. the GitHub release is published, non-draft, and non-prerelease; and
+4. fresh downloads of all three assets are byte-identical to the qualified
+   local files and match the SHA-256 values above.
 
 The public `jkaunert/apple-appdev-workflow` repository remains frozen through
 the Build Week judging window. Publishing this companion must not modify,

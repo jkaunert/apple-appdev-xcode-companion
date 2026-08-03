@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "qualified_at": "2026-07-30",
-  "decision": "ready-only-for-narrower-distribution",
+  "decision": "ready-to-ship",
   "candidate": {
     "version": "0.2.0",
     "app_build": "4",
@@ -111,10 +111,38 @@
     "preserved_xcode_matrix_rescore": "pass-9-of-9-by-exact-payload-identity",
     "top_level_stop_correction": "pass"
   },
+  "publication": {
+    "published_at": "2026-08-03T19:49:40Z",
+    "repository": "jkaunert/apple-appdev-xcode-companion",
+    "repository_visibility": "public",
+    "tag": "v0.2.0",
+    "annotated_tag_object": "6dedd63c94b6de6384860a73c29d882b3691f97d",
+    "tag_target_commit": "d8f83d1fa0d661aa1c01a1138c0e156bf4929d5d",
+    "release_url": "https://github.com/jkaunert/apple-appdev-xcode-companion/releases/tag/v0.2.0",
+    "draft": false,
+    "prerelease": false,
+    "asset_count": 3,
+    "downloaded_assets_byte_identical": true,
+    "assets": [
+      {
+        "name": "AppleAppDevXcodeHeadlessInstaller-0.2.0.dmg",
+        "sha256": "d604a00bbc2a930326d7fe3f4c30fea0725da1b370c1f8bb07791793539a130a",
+        "size_bytes": 2193480
+      },
+      {
+        "name": "AppleAppDevXcodeHeadlessInstaller-0.2.0.dmg.manifest.json",
+        "sha256": "f6cd73ae2762b53f1728cbfe9602d67f6c4b03b4a3a9ee4398953ad737f7146b",
+        "size_bytes": 1207
+      },
+      {
+        "name": "AppleAppDevXcodeHeadlessInstaller-0.2.0.dmg.notary.json",
+        "sha256": "85beabbc9c48e7cbd143c20e3219efa18a2cf30054e7a162e64a6e02193d5124",
+        "size_bytes": 98
+      }
+    ]
+  },
   "remaining_limits": [
     "public plugin repository frozen during judging",
-    "hook trust is an explicit user action",
-    "companion repository remains private",
-    "companion tag and GitHub release not published"
+    "hook trust is an explicit user action"
   ]
 }
