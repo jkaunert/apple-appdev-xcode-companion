@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import platform
 import subprocess
 import tempfile
 import unittest
@@ -21,9 +22,12 @@ PACKAGE_SCRIPT = (
 )
 PLUGIN_NAME = "apple-appdev-workflow"
 PLUGIN_VERSION = "0.2.0"
+PLUGIN_SOURCE = "apple-developer-tools"
+LOCAL_PLUGIN_SOURCE = "LocalAppleWorkflow"
 REQUIRED_PROFILE_FILES = (
     "hooks/hooks.json",
     "hooks/apple_router.mjs",
+    "hooks/apple_contract_guard.mjs",
     "routing/router-policy.json",
     "routing/top-level-owner-kernel.md",
 )
@@ -104,9 +108,51 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             xcode_home
             / "plugins"
             / "cache"
-            / "LocalAppleWorkflow"
+            / PLUGIN_SOURCE
             / PLUGIN_NAME
             / PLUGIN_VERSION
+        )
+
+    def config_path(self, xcode_home: Path) -> Path:
+        return xcode_home / "config.toml"
+
+    def test_help_names_public_plugin_source_as_default(self) -> None:
+        result = self.run_installer("--help")
+
+        self.assertIn(
+            "Cache namespace. Defaults to apple-developer-tools.",
+            result.stdout,
+        )
+
+    def test_packaged_app_has_a_native_double_click_install_flow(self) -> None:
+        source = SOURCE.read_text()
+
+        self.assertIn("import AppKit", source)
+        self.assertIn("if arguments.isEmpty", source)
+        self.assertIn("return runInteractiveInstaller()", source)
+        self.assertIn(
+            'message: "Install Apple AppDev Workflow for Xcode?"',
+            source,
+        )
+        self.assertIn("try installPackagedPluginProfile(options: options)", source)
+
+    def test_interactive_install_copy_requires_reviewing_both_lifecycle_hooks(
+        self,
+    ) -> None:
+        source = SOURCE.read_text()
+
+        self.assertIn(
+            "pre-trust either lifecycle hook: UserPromptSubmit or Stop.",
+            source,
+        )
+        self.assertIn(
+            "review and trust each lifecycle hook: UserPromptSubmit and Stop.",
+            source,
+        )
+        self.assertNotIn("pre-trust the UserPromptSubmit hook.", source)
+        self.assertNotIn(
+            "review and trust the UserPromptSubmit hook with stock Codex.",
+            source,
         )
 
     def test_plugin_profile_dry_run_never_mutates_xcode_home(self) -> None:
@@ -132,14 +178,39 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             target = self.target(xcode_home)
             target.parent.mkdir(parents=True)
             subprocess.run(["/bin/cp", "-R", str(old_profile), str(target)], check=True)
+            config = self.config_path(xcode_home)
+            original_config = (
+                'model = "gpt-5.5"\n\n'
+                f'[plugins."{PLUGIN_NAME}@{LOCAL_PLUGIN_SOURCE}"]\n'
+                "enabled = true\n\n"
+                '[plugins."unrelated@example"]\n'
+                "enabled = true\n"
+            )
+            config.write_text(original_config)
 
             self.run_installer(*self.install_arguments(payload_root, xcode_home))
 
             self.assertEqual((target / "marker.txt").read_text().strip(), "new")
+            installed_config = config.read_text()
+            self.assertIn(
+                f'[plugins."{PLUGIN_NAME}@{PLUGIN_SOURCE}"]\nenabled = true',
+                installed_config,
+            )
+            self.assertIn(
+                f'[plugins."{PLUGIN_NAME}@{LOCAL_PLUGIN_SOURCE}"]\nenabled = false',
+                installed_config,
+            )
+            self.assertIn(
+                '[plugins."unrelated@example"]\nenabled = true',
+                installed_config,
+            )
             quarantine = xcode_home / ".tmp/plugins/quarantine" / PLUGIN_NAME
-            backups = sorted(quarantine.glob(f"{PLUGIN_VERSION}-full-plugin-cache-*"))
+            backups = sorted(quarantine.glob(f"{PLUGIN_VERSION}-plugin-install-*"))
             self.assertEqual(len(backups), 1)
-            self.assertEqual((backups[0] / "marker.txt").read_text().strip(), "old")
+            self.assertEqual(
+                (backups[0] / "previous-profile/marker.txt").read_text().strip(),
+                "old",
+            )
 
             self.run_installer(
                 "--restore-plugin-profile",
@@ -149,10 +220,72 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             )
 
             self.assertEqual((target / "marker.txt").read_text().strip(), "old")
+            self.assertEqual(config.read_text(), original_config)
             replaced = sorted(quarantine.glob(f"{PLUGIN_VERSION}-before-restore-*"))
             self.assertEqual(len(replaced), 1)
-            self.assertEqual((replaced[0] / "marker.txt").read_text().strip(), "new")
+            self.assertEqual(
+                (replaced[0] / "previous-profile/marker.txt").read_text().strip(),
+                "new",
+            )
             self.assertFalse((root / "Agents").exists())
+
+    def test_plugin_profile_fresh_install_rollback_removes_profile_and_restores_config(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            payload_root, _ = self.make_payload(root, marker="new")
+            xcode_home = root / "xcode-home"
+            xcode_home.mkdir()
+            config = self.config_path(xcode_home)
+            original_config = (
+                f'[plugins."{PLUGIN_NAME}@{LOCAL_PLUGIN_SOURCE}"]\n'
+                "enabled = true\n"
+            )
+            config.write_text(original_config)
+
+            self.run_installer(*self.install_arguments(payload_root, xcode_home))
+
+            target = self.target(xcode_home)
+            self.assertTrue(target.is_dir())
+            quarantine = xcode_home / ".tmp/plugins/quarantine" / PLUGIN_NAME
+            backups = sorted(quarantine.glob(f"{PLUGIN_VERSION}-plugin-install-*"))
+            self.assertEqual(len(backups), 1)
+            self.assertFalse((backups[0] / "previous-profile").exists())
+
+            self.run_installer(
+                "--restore-plugin-profile",
+                str(backups[0]),
+                "--xcode-codex-home",
+                str(xcode_home),
+            )
+
+            self.assertFalse(target.exists())
+            self.assertEqual(config.read_text(), original_config)
+
+    def test_plugin_profile_fresh_install_rollback_removes_new_config(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            payload_root, _ = self.make_payload(root, marker="new")
+            xcode_home = root / "xcode-home"
+
+            self.run_installer(*self.install_arguments(payload_root, xcode_home))
+
+            target = self.target(xcode_home)
+            config = self.config_path(xcode_home)
+            self.assertTrue(target.is_dir())
+            self.assertTrue(config.is_file())
+            quarantine = xcode_home / ".tmp/plugins/quarantine" / PLUGIN_NAME
+            backups = sorted(quarantine.glob(f"{PLUGIN_VERSION}-plugin-install-*"))
+            self.assertEqual(len(backups), 1)
+
+            self.run_installer(
+                "--restore-plugin-profile",
+                str(backups[0]),
+                "--xcode-codex-home",
+                str(xcode_home),
+            )
+
+            self.assertFalse(target.exists())
+            self.assertFalse(config.exists())
 
     def test_plugin_profile_rejects_plugin_managed_mcp_servers(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -291,6 +424,12 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             self.assertIn("validate --install-plugin-profile", result.stdout)
+            self.assertIn("source_commit:", result.stdout)
+            self.assertIn("source_dirty:", result.stdout)
+            self.assertIn(
+                f'-target "{platform.machine()}-apple-macosx15.0"',
+                result.stdout,
+            )
             self.assertNotIn("copy runtime payload", result.stdout)
             self.assertFalse(output_dir.exists())
 

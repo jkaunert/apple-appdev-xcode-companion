@@ -51,41 +51,106 @@ tools/xcode-headless-installer/scripts/package_dmg.sh \
 
 `--notarize` is rejected unless `--release` is present. A successful package
 run emits a sidecar JSON manifest with the final DMG SHA-256, installer-binary
-SHA-256, signing mode, notarization status, plugin manifest hash, and routing
-core hash. A notarized run also keeps notarytool's JSON result beside the DMG
-and records its accepted submission ID in the sidecar manifest.
+SHA-256, exact source commit, clean/dirty state, signing mode, notarization
+status, plugin manifest hash, and routing core hash. Developer ID release
+packaging refuses a dirty or non-git source checkout. A notarized run also
+keeps notarytool's JSON result beside the DMG and records its accepted
+submission ID in the sidecar manifest.
 
 ## Install Or Roll Back The Plugin Profile
 
-After the DMG passes Gatekeeper, run the embedded installer explicitly:
+Open the DMG and quit Xcode. Then double-click
+`AppleAppDevXcodeHeadlessInstaller.app`, review the native confirmation, and
+click **Install**. The completion dialog confirms that Xcode's active Codex
+agent was not changed and provides a copyable rollback path.
+
+For terminal automation, change into the mounted DMG directory and invoke the
+same signed app executable explicitly:
 
 ```bash
-/Volumes/Apple\ AppDev\ Xcode\ Headless\ Installer/AppleAppDevXcodeHeadlessInstaller.app/Contents/MacOS/xcode-headless-installer \
+cd "/Volumes/Apple AppDev Xcode Headless Installer"
+./AppleAppDevXcodeHeadlessInstaller.app/Contents/MacOS/xcode-headless-installer \
   --install-plugin-profile
 ```
+
+The volume can receive a numeric suffix if another copy is already mounted.
+Finder double-click installation does not depend on the mounted volume name.
 
 The install target is:
 
 ```text
-~/Library/Developer/Xcode/CodingAssistant/codex/plugins/cache/LocalAppleWorkflow/apple-appdev-workflow/<version>
+~/Library/Developer/Xcode/CodingAssistant/codex/plugins/cache/apple-developer-tools/apple-appdev-workflow/<version>
 ```
 
-If that same version already exists, the installer moves it to Xcode Codex
-home's `.tmp/plugins/quarantine/apple-appdev-workflow/` directory before
-copying the new profile. It prints the exact rollback path. Restore it with:
+The installer creates a transaction backup under Xcode Codex home's
+`.tmp/plugins/quarantine/apple-appdev-workflow/` directory before copying the
+new profile. The transaction includes the prior profile when present and the
+prior `config.toml` state. It enables
+`apple-appdev-workflow@apple-developer-tools` and disables conflicting
+identities in that Xcode home without deleting their caches. It prints the
+exact rollback path. Restore the complete profile-and-config state with:
 
 ```bash
-/Volumes/Apple\ AppDev\ Xcode\ Headless\ Installer/AppleAppDevXcodeHeadlessInstaller.app/Contents/MacOS/xcode-headless-installer \
+cd "/Volumes/Apple AppDev Xcode Headless Installer"
+./AppleAppDevXcodeHeadlessInstaller.app/Contents/MacOS/xcode-headless-installer \
   --restore-plugin-profile /absolute/path/printed/by/install
 ```
 
-Restore accepts only a validated plugin backup inside that quarantine root. It
-preserves the profile being replaced as a second rollback backup. Both install
-and restore strip copied extended attributes and validate the final manifest,
-hook, neutral policy, and owner-kernel shape.
+Restore accepts only a validated transaction backup inside that quarantine
+root. It preserves the profile and config being replaced as a second rollback
+backup. Both install and restore strip copied extended attributes and validate
+the final manifest, both lifecycle hooks, neutral policy, and owner-kernel
+shape.
 
 Plugin-profile operations never write under Xcode's `Agents` directory and
 never change `Agents/XcodeVersions/<build>/codex`.
+
+## Review And Trust The Hooks
+
+The installer enables the plugin profile but deliberately does not pre-trust
+its lifecycle hooks. Trust is a separate, explicit user action because hook
+commands run outside the Codex sandbox.
+
+With Xcode still closed, launch the stock Codex TUI from the Xcode
+CodingAssistant home:
+
+```bash
+XCODE_BUILD="$(xcodebuild -version | awk '/Build version/{print $3}')"
+XCODE_CODEX_HOME="$HOME/Library/Developer/Xcode/CodingAssistant/codex"
+CODEX_HOME="$XCODE_CODEX_HOME" \
+  "$HOME/Library/Developer/Xcode/CodingAssistant/Agents/XcodeVersions/$XCODE_BUILD/codex/codex"
+```
+
+Stock Codex opens its startup hook review when a definition needs approval.
+Choose **Review Hooks**, inspect the command and source path, and trust each
+new or changed hook from `apple-appdev-workflow@apple-developer-tools`.
+`UserPromptSubmit` injects the deterministic top-level owner; `Stop` validates
+the top-level owner's final output contract and can request one correction
+pass without looping. If the startup review has already been dismissed, enter
+`/hooks` to open the same browser. For the qualified dual-hook version `0.2.0`,
+the routing definition is:
+
+```text
+command: node "$PLUGIN_ROOT/hooks/apple_router.mjs"
+hash: sha256:1c82a273ee2e6d13245f8ade4bff516ecb8d46b623c96c22e4e572a8edb87711
+```
+
+The routing definition did not change, so an upgraded home may already trust
+it. The new final-contract guard is:
+
+```text
+command: node "$PLUGIN_ROOT/hooks/apple_contract_guard.mjs"
+hash: sha256:0ed272c8c1d1eb54f0342f83d3cb690a70448b72397b3fd1c53ffd191cc6bc78
+```
+
+On a clean home, review both. On an upgraded home, stock Codex may present only
+`Stop` as new. Do not approve a different command, source identity, or hash
+without reviewing the changed package. Quit the TUI after approval, start
+Xcode, create a fresh Codex conversation, and confirm the first broad
+Apple-development prompt produces the expected orchestrator-led route. The
+`Stop` guard intentionally applies only when
+`apple-appdev-workflow:apple-app-orchestrator` is the selected owner; focused
+explicit specialists retain their own output contracts.
 
 ## Optional Primary-Agent Canary
 
@@ -120,6 +185,8 @@ and only then signs the installer app.
 - Installing the profile does not prove a restarted Xcode host loaded it. Run a
   fresh Xcode CodingAssistant smoke after install before claiming that exact
   package is host-validated.
+- Hook discovery does not imply hook trust. Complete the explicit stock Codex
+  review for both lifecycle hooks before the live Xcode smoke.
 - The `xcode-headless` manifest must omit plugin-managed `mcpServers` and retired
   `routerSelection`; Xcode owns the native tool surface while the hook retains
   deterministic workflow ownership.

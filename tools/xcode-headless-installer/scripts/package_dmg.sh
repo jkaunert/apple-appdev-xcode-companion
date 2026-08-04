@@ -16,6 +16,7 @@ BUNDLE_ID="com.joshuakaunert.apple-appdev-workflow.xcode-headless-installer"
 BUNDLE_NAME="AppleAppDevXcodeHeadlessInstaller"
 DISPLAY_NAME="Apple AppDev Xcode Headless Installer"
 APP_EXECUTABLE="xcode-headless-installer"
+APP_ICON_NAME="AppleAppDevXcodeHeadlessInstaller.icns"
 APP_VERSION=""
 APP_BUILD="1"
 MIN_SYSTEM_VERSION="15.0"
@@ -48,7 +49,7 @@ Package options:
   --bundle-id ID            Installer app bundle id.
   --version VERSION         Installer app version. Defaults to plugin version or 0.1.0.
   --build BUILD             Installer app build. Defaults to 1.
-  --min-system VERSION      LSMinimumSystemVersion. Defaults to 15.0.
+  --min-system VERSION      Compile target and LSMinimumSystemVersion. Defaults to 15.0.
   --sign IDENTITY           Developer ID Application signing identity.
   --release                 Require Developer ID signing and hardened runtime.
   --notarize                Submit the signed DMG to Apple, staple, and assess.
@@ -214,6 +215,11 @@ manifest_has_key() {
 [[ -n "$BUNDLE_ID" ]] || { echo "error: --bundle-id cannot be empty" >&2; exit 2; }
 [[ -n "$APP_BUILD" ]] || { echo "error: --build cannot be empty" >&2; exit 2; }
 [[ -n "$MIN_SYSTEM_VERSION" ]] || { echo "error: --min-system cannot be empty" >&2; exit 2; }
+[[ "$MIN_SYSTEM_VERSION" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]] || {
+  echo "error: --min-system must be a macOS version such as 15.0" >&2
+  exit 2
+}
+SWIFT_TARGET="$(uname -m)-apple-macosx${MIN_SYSTEM_VERSION}"
 if [[ "$RELEASE_MODE" == "1" && -z "$SIGN_IDENTITY" ]]; then
   echo "error: --release requires --sign or APPLE_APPDEV_WORKFLOW_CODESIGN_IDENTITY" >&2
   exit 2
@@ -262,6 +268,7 @@ fi
 
 PLUGIN_MANIFEST_SHA256=""
 PLUGIN_CORE_SHA256=""
+APP_ICON_SOURCE=""
 if [[ -n "$PLUGIN_PROFILE" ]]; then
   [[ -d "$PLUGIN_PROFILE" ]] || {
     echo "error: --plugin-profile must be a directory: $PLUGIN_PROFILE" >&2
@@ -300,6 +307,7 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
   CORE_FILES=(
     "hooks/hooks.json"
     "hooks/apple_router.mjs"
+    "hooks/apple_contract_guard.mjs"
     "routing/router-policy.json"
     "routing/top-level-owner-kernel.md"
   )
@@ -316,6 +324,11 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
       printf '%s  %s\n' "$file_hash" "$relative_path"
     done
   } | shasum -a 256 | awk '{print $1}')"
+  if [[ -f "$PLUGIN_PROFILE/assets/apple-appdev-workflow-logo.png" ]]; then
+    APP_ICON_SOURCE="$PLUGIN_PROFILE/assets/apple-appdev-workflow-logo.png"
+  elif [[ -f "$PLUGIN_PROFILE/assets/apple-appdev-workflow-logo-512.png" ]]; then
+    APP_ICON_SOURCE="$PLUGIN_PROFILE/assets/apple-appdev-workflow-logo-512.png"
+  fi
 fi
 
 if [[ -z "$APP_VERSION" ]]; then
@@ -334,6 +347,16 @@ if [[ -n "$PLUGIN_VERSION" && -n "$AGENT_VERSION" ]]; then
 fi
 if [[ -z "$OUTPUT_DMG" ]]; then
   OUTPUT_DMG="$OUTPUT_DIR/${BUNDLE_NAME}-${PACKAGE_SUFFIX}.dmg"
+fi
+
+SOURCE_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || true)"
+SOURCE_DIRTY=false
+if [[ -n "$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null || true)" ]]; then
+  SOURCE_DIRTY=true
+fi
+if [[ "$RELEASE_MODE" == "1" && ( -z "$SOURCE_COMMIT" || "$SOURCE_DIRTY" == "true" ) ]]; then
+  echo "error: --release requires a clean git checkout with a resolvable source commit" >&2
+  exit 1
 fi
 
 APP_PATH="$OUTPUT_DIR/$BUNDLE_NAME.app"
@@ -360,6 +383,8 @@ fi
 
 echo "Xcode-headless installer package plan"
 echo "  repo_root: $REPO_ROOT"
+echo "  source_commit: $SOURCE_COMMIT"
+echo "  source_dirty: $SOURCE_DIRTY"
 if [[ -n "$PLUGIN_PROFILE" ]]; then
   echo "  plugin_profile: $PLUGIN_PROFILE"
   echo "  plugin_name: $PLUGIN_NAME"
@@ -367,6 +392,9 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
   echo "  plugin_manifest_sha256: $PLUGIN_MANIFEST_SHA256"
   echo "  plugin_core_sha256: $PLUGIN_CORE_SHA256"
   echo "  plugin_payload_destination: $PLUGIN_PAYLOAD_DIR"
+  if [[ -n "$APP_ICON_SOURCE" ]]; then
+    echo "  app_icon_source: $APP_ICON_SOURCE"
+  fi
 fi
 if [[ -n "$AGENT_RUNTIME" ]]; then
   echo "  agent_runtime: $AGENT_RUNTIME"
@@ -388,9 +416,12 @@ if [[ -n "$NOTARY_PROFILE" ]]; then
 fi
 
 if [[ "$DRY_RUN" == "1" ]]; then
-  echo "dry-run: swiftc -O -o \"$BUILD_BIN\" \"$TOOL_DIR/Sources/XcodeHeadlessInstaller/main.swift\""
+  echo "dry-run: swiftc -O -target \"$SWIFT_TARGET\" -o \"$BUILD_BIN\" \"$TOOL_DIR/Sources/XcodeHeadlessInstaller/main.swift\""
   if [[ -n "$PLUGIN_PROFILE" ]]; then
     echo "dry-run: copy xcode-headless plugin profile into \"$PLUGIN_PAYLOAD_DIR\""
+    if [[ -n "$APP_ICON_SOURCE" ]]; then
+      echo "dry-run: render branded installer icon into \"$RESOURCES_DIR/$APP_ICON_NAME\""
+    fi
     echo "dry-run: validate --install-plugin-profile without changing Xcode home"
   fi
   if [[ -n "$AGENT_RUNTIME" ]]; then
@@ -415,7 +446,7 @@ mkdir -p "$OUTPUT_DIR"
 rm -rf "$APP_PATH" "$STAGING_DIR" "$OUTPUT_DIR/build" "$ENTITLEMENTS_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR" "$ENTITLEMENTS_DIR" "$OUTPUT_DIR/build" "$STAGING_DIR"
 
-swiftc -O -o "$BUILD_BIN" "$TOOL_DIR/Sources/XcodeHeadlessInstaller/main.swift"
+swiftc -O -target "$SWIFT_TARGET" -o "$BUILD_BIN" "$TOOL_DIR/Sources/XcodeHeadlessInstaller/main.swift"
 cp -p "$BUILD_BIN" "$MACOS_DIR/$APP_EXECUTABLE"
 chmod +x "$MACOS_DIR/$APP_EXECUTABLE"
 
@@ -423,6 +454,26 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
   mkdir -p "$(dirname "$PLUGIN_PAYLOAD_DIR")"
   cp -R -X "$PLUGIN_PROFILE" "$PLUGIN_PAYLOAD_DIR"
   xattr -c -r "$PLUGIN_PAYLOAD_DIR"
+fi
+
+if [[ -n "$APP_ICON_SOURCE" ]]; then
+  has sips || { echo "error: sips is required to build the installer app icon" >&2; exit 1; }
+  has iconutil || { echo "error: iconutil is required to build the installer app icon" >&2; exit 1; }
+  APP_ICONSET="$OUTPUT_DIR/app-icon.iconset"
+  rm -rf "$APP_ICONSET"
+  mkdir -p "$APP_ICONSET"
+  sips -z 16 16 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_16x16.png" >/dev/null
+  sips -z 32 32 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_16x16@2x.png" >/dev/null
+  sips -z 32 32 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_32x32.png" >/dev/null
+  sips -z 64 64 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_32x32@2x.png" >/dev/null
+  sips -z 128 128 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_128x128.png" >/dev/null
+  sips -z 256 256 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_128x128@2x.png" >/dev/null
+  sips -z 256 256 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_256x256.png" >/dev/null
+  sips -z 512 512 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_256x256@2x.png" >/dev/null
+  sips -z 512 512 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_512x512.png" >/dev/null
+  sips -z 1024 1024 "$APP_ICON_SOURCE" --out "$APP_ICONSET/icon_512x512@2x.png" >/dev/null
+  iconutil -c icns "$APP_ICONSET" -o "$RESOURCES_DIR/$APP_ICON_NAME"
+  rm -rf "$APP_ICONSET"
 fi
 
 if [[ -n "$AGENT_RUNTIME" ]]; then
@@ -450,6 +501,12 @@ cat > "$INSTALLER_ENTITLEMENTS" <<'EOF'
 </plist>
 EOF
 
+APP_ICON_PLIST=""
+if [[ -n "$APP_ICON_SOURCE" ]]; then
+  APP_ICON_PLIST="  <key>CFBundleIconFile</key>
+  <string>$(xml_escape "$APP_ICON_NAME")</string>"
+fi
+
 cat > "$CONTENTS_DIR/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -463,10 +520,11 @@ cat > "$CONTENTS_DIR/Info.plist" <<EOF
   <string>$(xml_escape "$APP_EXECUTABLE")</string>
   <key>CFBundleIdentifier</key>
   <string>$(xml_escape "$BUNDLE_ID")</string>
+$APP_ICON_PLIST
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
-  <string>$(xml_escape "$BUNDLE_NAME")</string>
+  <string>$(xml_escape "$DISPLAY_NAME")</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
@@ -554,10 +612,18 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
   cat >> "$STAGING_DIR/README.txt" <<EOF
 
 To install the embedded xcode-headless plugin profile:
+  1. Quit Xcode.
+  2. Double-click $BUNDLE_NAME.app.
+  3. Review the confirmation and click Install.
+
+The installer backs up the prior profile and Xcode Codex config, enables the
+public plugin identity, and disables conflicting identities without deleting
+their caches. The completion dialog shows the exact rollback path.
+
+For terminal automation from this mounted DMG directory:
   ./$BUNDLE_NAME.app/Contents/MacOS/$APP_EXECUTABLE --install-plugin-profile
 
-The installer backs up an existing same-version profile before replacement and
-prints the exact rollback path. Restore it with:
+Restore the complete state from this mounted DMG directory with:
   ./$BUNDLE_NAME.app/Contents/MacOS/$APP_EXECUTABLE --restore-plugin-profile BACKUP_PATH
 
 Embedded plugin: $PLUGIN_NAME $PLUGIN_VERSION
@@ -622,6 +688,8 @@ cat > "$PACKAGE_MANIFEST" <<EOF
 {
   "schema_version": 1,
   "created_at": "$(timestamp)",
+  "source_commit": "$(json_escape "$SOURCE_COMMIT")",
+  "source_dirty": $SOURCE_DIRTY,
   "bundle_id": "$(json_escape "$BUNDLE_ID")",
   "app_version": "$(json_escape "$APP_VERSION")",
   "app_build": "$(json_escape "$APP_BUILD")",
@@ -669,7 +737,10 @@ plugin_manifest_sha256: $PLUGIN_MANIFEST_SHA256
 plugin_core_sha256: $PLUGIN_CORE_SHA256
 
 Plugin-profile install command after mounting the DMG:
-  "/Volumes/$VOLUME_NAME/$BUNDLE_NAME.app/Contents/MacOS/$APP_EXECUTABLE" --install-plugin-profile
+  Double-click "$BUNDLE_NAME.app" in the mounted DMG.
+
+Optional terminal automation from the mounted DMG directory:
+  "./$BUNDLE_NAME.app/Contents/MacOS/$APP_EXECUTABLE" --install-plugin-profile
 EOF
 fi
 if [[ -n "$AGENT_RUNTIME" ]]; then

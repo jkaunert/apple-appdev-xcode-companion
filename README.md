@@ -1,7 +1,7 @@
 # Apple AppDev Xcode Companion
 
-Private staging source for the explicit Xcode CodingAssistant provisioning
-envelope used by Apple AppDev Workflow.
+Public source and release home for the explicit Xcode CodingAssistant
+provisioning envelope used by Apple AppDev Workflow.
 
 The Codex Marketplace plugin and this companion are separate distributions.
 The Marketplace plugin installs into ordinary Codex Desktop and CLI homes. The
@@ -10,17 +10,29 @@ CodingAssistant Codex home without changing Xcode's active Codex agent.
 
 ## Current status
 
-- private staging repository; not a public release surface
+- public companion release: [`v0.2.0`](https://github.com/jkaunert/apple-appdev-xcode-companion/releases/tag/v0.2.0)
 - source imported from private Apple AppDev Workflow commit
   `c30409e917a5bcdb02010c0b78b4971c2b3fa42a`
+- embedded dual-hook profile pinned to private Apple AppDev Workflow commit
+  `b176905b88ac3b21827f088d8a8c1b5b4c044a23`
+- signed, notarized, and published build-4 companion source commit
+  `d8f83d1fa0d661aa1c01a1138c0e156bf4929d5d`, qualified on macOS 15.7.8
+  and macOS 26.5.1 after exact-DMG transactional installation, a VoiceOver
+  installation pass, a fresh Xcode-host smoke, and a 9/9 preserved Xcode host
+  matrix rescore
 - paired public plugin release: `jkaunert/apple-appdev-workflow` `v0.2.0`
 - public plugin release commit:
   `c3702d917fedaa6674a750695d3173e36d714522`
+- exact artifact hashes, hook trust state, and stock-host evidence are in
+  [release qualification](docs/RELEASE_QUALIFICATION.md)
+- the verified tag, asset, and publication record is in the
+  [0.2.0 release packet](docs/RELEASE_PACKET_0.2.0.md)
 - the public plugin repository remains frozen during the Build Week judging
   window and is not modified by companion development
 
 See [source provenance](docs/SOURCE_PROVENANCE.md) for the exact extraction
-boundary.
+boundary and [compatibility contract](docs/COMPATIBILITY.md) for the pinned
+plugin/profile pairing.
 
 ## Package shape
 
@@ -33,8 +45,18 @@ The profile-only package contains:
 - no plugin-managed MCP servers
 
 The installer validates the embedded profile, refuses symbolic-link payloads,
-backs up an existing same-version installation, prints a validated restore
-path, and leaves `Agents/XcodeVersions/<build>/codex` unchanged.
+backs up the prior profile and Xcode Codex config, enables the public
+marketplace identity, disables conflicting identities without deleting their
+caches, presents a native double-click installation flow with a copyable
+validated restore path, and leaves
+`Agents/XcodeVersions/<build>/codex` unchanged.
+
+Lifecycle-hook trust remains an explicit user decision. The installer does not
+pre-trust the embedded `UserPromptSubmit` routing hook or `Stop` contract
+guard. On a clean Xcode Codex home, review and trust both. On an upgraded home,
+the unchanged `UserPromptSubmit` command may retain its prior trust while the
+new `Stop` command still requires review. The exact procedure is documented in
+the [installer guide](tools/xcode-headless-installer/README.md#review-and-trust-the-hooks).
 
 ## Development
 
