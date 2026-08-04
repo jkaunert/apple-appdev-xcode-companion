@@ -1,7 +1,7 @@
 # Compatibility Contract
 
-This companion release candidate is pinned to the following Marketplace
-plugin identity:
+This companion release is pinned to the following Marketplace plugin
+identity:
 
 ```text
 plugin: apple-appdev-workflow
@@ -9,7 +9,7 @@ plugin version: 0.2.0
 marketplace source: apple-developer-tools
 public distribution commit: c3702d917fedaa6674a750695d3173e36d714522
 private source commit: c30409e917a5bcdb02010c0b78b4971c2b3fa42a
-dual-hook candidate source commit: b176905b88ac3b21827f088d8a8c1b5b4c044a23
+dual-hook profile source commit: b176905b88ac3b21827f088d8a8c1b5b4c044a23
 ```
 
 The qualified dual-hook `xcode-headless` profile preserves these payload
