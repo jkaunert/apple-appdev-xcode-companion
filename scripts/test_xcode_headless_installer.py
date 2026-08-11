@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 import platform
+import pty
+import select
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -169,12 +173,14 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
         self,
         *arguments: str,
         expected_returncode: int = 0,
+        environment: dict[str, str] | None = None,
     ) -> subprocess.CompletedProcess[str]:
         result = subprocess.run(
             [str(self.binary), *arguments],
             text=True,
             capture_output=True,
             check=False,
+            env=environment,
         )
         self.assertEqual(
             result.returncode,
@@ -215,6 +221,176 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             result.stdout,
         )
 
+    def test_hook_review_mode_runs_xcode_agent_with_xcode_codex_home(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            xcode_build = "27A5237l"
+            agents_root = root / "Agents"
+            agent = (
+                agents_root
+                / "XcodeVersions"
+                / xcode_build
+                / "codex"
+                / "codex"
+            )
+            agent.parent.mkdir(parents=True)
+            capture = root / "hook-review-capture.txt"
+            agent.write_text(
+                "#!/bin/sh\n"
+                "printf '%s\\n' \"$CODEX_HOME\" > \"$HOOK_REVIEW_CAPTURE\"\n"
+                "printf '%s\\n' \"$#\" >> \"$HOOK_REVIEW_CAPTURE\"\n"
+                "/bin/pwd >> \"$HOOK_REVIEW_CAPTURE\"\n"
+            )
+            agent.chmod(0o755)
+            xcode_home = root / "xcode-home"
+            environment = os.environ.copy()
+            environment["HOOK_REVIEW_CAPTURE"] = str(capture)
+
+            result = self.run_installer(
+                "--review-plugin-hooks",
+                "--agents-root",
+                str(agents_root),
+                "--xcode-build",
+                xcode_build,
+                "--xcode-codex-home",
+                str(xcode_home),
+                environment=environment,
+            )
+
+            self.assertEqual(
+                capture.read_text().splitlines(),
+                [
+                    str(xcode_home),
+                    "0",
+                    str(
+                        (xcode_home / ".tmp/hook-trust-onboarding/workspace").resolve()
+                    ),
+                ],
+            )
+
+    def test_hook_review_mode_keeps_agent_in_terminal_foreground_process_group(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            xcode_build = "27A5237l"
+            agents_root = root / "Agents"
+            agent = (
+                agents_root
+                / "XcodeVersions"
+                / xcode_build
+                / "codex"
+                / "codex"
+            )
+            agent.parent.mkdir(parents=True)
+            agent.write_text(
+                "#!/bin/sh\n"
+                "agent_pgid=$(/bin/ps -o pgid= -p $$ | /usr/bin/tr -d ' ')\n"
+                "terminal_pgid=$(/bin/ps -o tpgid= -p $$ | /usr/bin/tr -d ' ')\n"
+                "printf 'agent_pgid=%s terminal_pgid=%s\\n' \"$agent_pgid\" \"$terminal_pgid\"\n"
+                "test \"$agent_pgid\" = \"$terminal_pgid\"\n"
+            )
+            agent.chmod(0o755)
+            xcode_home = root / "xcode-home"
+            arguments = [
+                str(self.binary),
+                "--review-plugin-hooks",
+                "--agents-root",
+                str(agents_root),
+                "--xcode-build",
+                xcode_build,
+                "--xcode-codex-home",
+                str(xcode_home),
+            ]
+
+            child_pid, master_fd = pty.fork()
+            if child_pid == 0:
+                os.execve(str(self.binary), arguments, os.environ.copy())
+
+            output = bytearray()
+            status: int | None = None
+            deadline = time.monotonic() + 3
+            try:
+                while time.monotonic() < deadline:
+                    ready, _, _ = select.select([master_fd], [], [], 0.1)
+                    if ready:
+                        try:
+                            output.extend(os.read(master_fd, 4096))
+                        except OSError:
+                            pass
+                    waited_pid, waited_status = os.waitpid(child_pid, os.WNOHANG)
+                    if waited_pid == child_pid:
+                        status = waited_status
+                        break
+            finally:
+                if status is None:
+                    subprocess.run(
+                        ["/usr/bin/pkill", "-TERM", "-s", str(child_pid)],
+                        check=False,
+                        capture_output=True,
+                    )
+                    time.sleep(0.1)
+                    subprocess.run(
+                        ["/usr/bin/pkill", "-KILL", "-s", str(child_pid)],
+                        check=False,
+                        capture_output=True,
+                    )
+                    _, status = os.waitpid(child_pid, 0)
+                os.close(master_fd)
+
+            rendered = output.decode(errors="replace")
+            self.assertFalse(
+                os.WIFSIGNALED(status),
+                msg=f"hook review was terminated before completion:\n{rendered}",
+            )
+            self.assertEqual(
+                os.waitstatus_to_exitcode(status),
+                0,
+                msg=f"hook review did not retain the terminal foreground:\n{rendered}",
+            )
+            self.assertRegex(
+                rendered,
+                r"agent_pgid=(\d+) terminal_pgid=\1",
+            )
+
+    def test_hook_review_mode_rejects_symlinked_onboarding_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            xcode_build = "27A5237l"
+            agents_root = root / "Agents"
+            agent = (
+                agents_root
+                / "XcodeVersions"
+                / xcode_build
+                / "codex"
+                / "codex"
+            )
+            agent.parent.mkdir(parents=True)
+            agent.write_text("#!/bin/sh\nexit 0\n")
+            agent.chmod(0o755)
+            xcode_home = root / "xcode-home"
+            xcode_home.mkdir()
+            external = root / "external"
+            external.mkdir()
+            (xcode_home / ".tmp").symlink_to(external, target_is_directory=True)
+
+            result = self.run_installer(
+                "--review-plugin-hooks",
+                "--agents-root",
+                str(agents_root),
+                "--xcode-build",
+                xcode_build,
+                "--xcode-codex-home",
+                str(xcode_home),
+                expected_returncode=1,
+            )
+
+            self.assertIn(
+                "Xcode Codex temporary directory must be a real directory",
+                result.stderr,
+            )
+            self.assertEqual(list(external.iterdir()), [])
+
     def test_packaged_app_has_a_native_double_click_install_flow(self) -> None:
         source = SOURCE.read_text()
 
@@ -227,7 +403,7 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
         )
         self.assertIn("try installPackagedPluginProfile(options: options)", source)
 
-    def test_interactive_install_copy_requires_reviewing_both_lifecycle_hooks(
+    def test_interactive_install_offers_stock_codex_hook_review_without_pretrust(
         self,
     ) -> None:
         source = SOURCE.read_text()
@@ -240,6 +416,11 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             "review and trust each lifecycle hook: UserPromptSubmit and Stop.",
             source,
         )
+        self.assertIn('primaryButton: "Review Hooks"', source)
+        self.assertIn("try launchHookReviewInTerminal()", source)
+        self.assertIn('launcherPath="$0"', source)
+        self.assertIn('/bin/rm -f -- "$launcherPath"', source)
+        self.assertNotIn('key_path: "hooks.state"', source)
         self.assertNotIn("pre-trust the UserPromptSubmit hook.", source)
         self.assertNotIn(
             "review and trust the UserPromptSubmit hook with stock Codex.",
@@ -589,6 +770,7 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             self.assertIn("validate --install-plugin-profile", result.stdout)
+            self.assertIn("validate --review-plugin-hooks", result.stdout)
             self.assertIn("source_commit:", result.stdout)
             self.assertIn("source_dirty:", result.stdout)
             self.assertIn(

@@ -42,6 +42,13 @@ project-structure prose in the `UserPromptSubmit` prompt on this host.
 - the Stop postflight verifies one correction and a silent
   `stop_hook_active=true` retry so the guard cannot loop
 - any validation or postflight failure restores the prior profile and config
+- the completion dialog makes explicit hook review the primary next action and
+  opens the exact Xcode-shipped stock Codex binary in Terminal
+- the review handoff preserves Terminal foreground process-group ownership,
+  uses a dedicated empty onboarding workspace instead of the user's home, and
+  rejects symlinked onboarding directories
+- the review handoff preserves stock ownership of command/source inspection and
+  trust persistence; the installer never writes `hooks.state`
 
 ## Development evidence
 

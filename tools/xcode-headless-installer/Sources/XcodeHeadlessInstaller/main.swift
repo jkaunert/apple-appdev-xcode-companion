@@ -11,6 +11,7 @@ struct Options {
     var installAgent = false
     var activateAgent = false
     var installPluginProfile = false
+    var reviewPluginHooks = false
     var restorePluginBackup: URL?
     var dryRun = false
     var force = false
@@ -60,6 +61,7 @@ func usage() -> String {
     Usage:
       xcode-headless-installer --install-agent [options]
       xcode-headless-installer --install-plugin-profile [options]
+      xcode-headless-installer --review-plugin-hooks [options]
       xcode-headless-installer --restore-plugin-profile BACKUP_PATH [options]
 
     Agent options:
@@ -81,6 +83,7 @@ func usage() -> String {
       --xcode-codex-home PATH  Defaults to ~/Library/Developer/Xcode/CodingAssistant/codex.
       --plugin-payload-root PATH
                                Defaults to Contents/Resources/XcodePluginProfile.
+      --review-plugin-hooks    Open stock Codex's hook review for Xcode's Codex home.
 
     Shared options:
       --dry-run                Print actions without mutating files.
@@ -121,6 +124,9 @@ func parseArguments(_ arguments: [String]) throws -> Options {
             index += 1
         case "--install-plugin-profile":
             options.installPluginProfile = true
+            index += 1
+        case "--review-plugin-hooks":
+            options.reviewPluginHooks = true
             index += 1
         case "--restore-plugin-profile":
             guard index + 1 < arguments.count else {
@@ -249,6 +255,119 @@ func defaultAgentsRoot() -> URL {
 func defaultXcodeCodexHome() -> URL {
     URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
         .appendingPathComponent("Library/Developer/Xcode/CodingAssistant/codex", isDirectory: true)
+}
+
+func hookTrustOnboardingRoot(_ xcodeCodexHome: URL) -> URL {
+    xcodeCodexHome
+        .appendingPathComponent(".tmp", isDirectory: true)
+        .appendingPathComponent("hook-trust-onboarding", isDirectory: true)
+}
+
+func createOrValidateRealDirectory(
+    _ directory: URL,
+    withIntermediateDirectories: Bool,
+    label: String
+) throws {
+    let fileManager = FileManager.default
+    if !fileManager.fileExists(atPath: directory.path) {
+        try fileManager.createDirectory(
+            at: directory,
+            withIntermediateDirectories: withIntermediateDirectories
+        )
+    }
+    let values = try directory.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+    guard values.isDirectory == true, values.isSymbolicLink != true else {
+        throw InstallerError(description: "\(label) must be a real directory: \(directory.path)")
+    }
+}
+
+func prepareHookReviewWorkspace(_ xcodeCodexHome: URL) throws -> URL {
+    let temporaryRoot = xcodeCodexHome.appendingPathComponent(".tmp", isDirectory: true)
+    let onboardingRoot = hookTrustOnboardingRoot(xcodeCodexHome)
+    let workspace = onboardingRoot.appendingPathComponent("workspace", isDirectory: true)
+
+    try createOrValidateRealDirectory(
+        xcodeCodexHome,
+        withIntermediateDirectories: true,
+        label: "Xcode Codex home"
+    )
+    try createOrValidateRealDirectory(
+        temporaryRoot,
+        withIntermediateDirectories: false,
+        label: "Xcode Codex temporary directory"
+    )
+    try createOrValidateRealDirectory(
+        onboardingRoot,
+        withIntermediateDirectories: false,
+        label: "hook-trust onboarding directory"
+    )
+    try createOrValidateRealDirectory(
+        workspace,
+        withIntermediateDirectories: false,
+        label: "hook-review workspace"
+    )
+    guard isContained(onboardingRoot, in: xcodeCodexHome),
+          isContained(workspace, in: onboardingRoot)
+    else {
+        throw InstallerError(
+            description: "hook-review workspace must remain inside Xcode's Codex home"
+        )
+    }
+    return workspace
+}
+
+func xcodeCodexAgentURL(agentsRoot: URL, xcodeBuild: String) throws -> URL {
+    let safeBuild = try validatePathComponent(xcodeBuild, label: "Xcode build")
+    return agentsRoot
+        .appendingPathComponent("XcodeVersions", isDirectory: true)
+        .appendingPathComponent(safeBuild, isDirectory: true)
+        .appendingPathComponent("codex", isDirectory: true)
+        .appendingPathComponent("codex", isDirectory: false)
+}
+
+func reviewPluginHooks(options: Options) throws {
+    let xcodeCodexHome = options.xcodeCodexHome ?? defaultXcodeCodexHome()
+    let agentsRoot = options.agentsRoot ?? defaultAgentsRoot()
+    let xcodeBuild = try options.xcodeBuild ?? detectXcodeBuild()
+    let agent = try xcodeCodexAgentURL(agentsRoot: agentsRoot, xcodeBuild: xcodeBuild)
+    let hookReviewWorkspace = hookTrustOnboardingRoot(xcodeCodexHome)
+        .appendingPathComponent("workspace", isDirectory: true)
+    try requireXcodeClosedForDefaultHome(xcodeCodexHome, dryRun: options.dryRun)
+
+    describe("xcode_codex_home=\(xcodeCodexHome.path)")
+    describe("xcode_build=\(xcodeBuild)")
+    describe("xcode_codex_agent=\(agent.path)")
+    describe("hook_review_workspace=\(hookReviewWorkspace.path)")
+    if options.dryRun {
+        describe("dry-run: would open stock Codex hook review for Xcode")
+        return
+    }
+
+    let values = try? agent.resourceValues(forKeys: [.isRegularFileKey])
+    guard values?.isRegularFile == true,
+          FileManager.default.isExecutableFile(atPath: agent.path)
+    else {
+        throw InstallerError(
+            description: "Xcode's stock Codex agent is missing or not executable: \(agent.path)"
+        )
+    }
+
+    let preparedWorkspace = try prepareHookReviewWorkspace(xcodeCodexHome)
+    guard FileManager.default.changeCurrentDirectoryPath(preparedWorkspace.path) else {
+        throw InstallerError(description: "could not enter the dedicated hook-review workspace")
+    }
+    guard Darwin.setenv("CODEX_HOME", xcodeCodexHome.path, 1) == 0 else {
+        throw InstallerError(description: "could not set Xcode's Codex home")
+    }
+
+    let result = agent.path.withCString { executable in
+        var arguments = [UnsafeMutablePointer(mutating: executable), nil]
+        return Darwin.execv(executable, &arguments)
+    }
+    let message = String(cString: Darwin.strerror(Darwin.errno))
+    throw InstallerError(
+        description: "could not execute Xcode's stock Codex agent: \(message) (\(result))"
+    )
 }
 
 func requireXcodeClosedForDefaultHome(_ xcodeCodexHome: URL, dryRun: Bool) throws {
@@ -1274,12 +1393,63 @@ func copyToPasteboard(_ value: String) {
     pasteboard.setString(value, forType: .string)
 }
 
+func shellSingleQuoted(_ value: String) -> String {
+    "'" + value.replacingOccurrences(of: "'", with: "'\"'\"'") + "'"
+}
+
+func launchHookReviewInTerminal() throws {
+    guard let installer = Bundle.main.executableURL else {
+        throw InstallerError(description: "could not resolve the installer executable")
+    }
+    let fileManager = FileManager.default
+    let xcodeCodexHome = defaultXcodeCodexHome()
+    _ = try prepareHookReviewWorkspace(xcodeCodexHome)
+    let launcherRoot = hookTrustOnboardingRoot(xcodeCodexHome)
+    let launcher = try uniquePath(
+        launcherRoot.appendingPathComponent(
+            "review-hooks-\(timestamp()).command",
+            isDirectory: false
+        )
+    )
+    let script = """
+    #!/bin/zsh
+    launcherPath="$0"
+    cleanup() { /bin/rm -f -- "$launcherPath"; }
+    trap cleanup EXIT
+    trap 'exit 130' HUP INT TERM
+    \(shellSingleQuoted(installer.path)) --review-plugin-hooks
+    """
+    guard let data = script.data(using: .utf8) else {
+        throw InstallerError(description: "could not encode the hook-review launcher")
+    }
+    try data.write(to: launcher, options: .atomic)
+    try fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: launcher.path)
+    guard NSWorkspace.shared.open(launcher) else {
+        try? fileManager.removeItem(at: launcher)
+        throw InstallerError(description: "Terminal did not open the stock Codex hook review")
+    }
+}
+
+func launchHookReviewOrPresentFailure() {
+    do {
+        try launchHookReviewInTerminal()
+    } catch {
+        _ = presentAlert(
+            message: "Hook review did not open",
+            information: "The profile is installed, but Terminal could not open stock Codex. \(error)",
+            style: .warning,
+            primaryButton: "OK"
+        )
+    }
+}
+
 func presentAlert(
     message: String,
     information: String,
     style: NSAlert.Style,
     primaryButton: String,
-    secondaryButton: String? = nil
+    secondaryButton: String? = nil,
+    tertiaryButton: String? = nil
 ) -> NSApplication.ModalResponse {
     let alert = NSAlert()
     alert.messageText = message
@@ -1288,8 +1458,14 @@ func presentAlert(
     alert.addButton(withTitle: primaryButton)
     if let secondaryButton {
         alert.addButton(withTitle: secondaryButton)
-        if secondaryButton == "Cancel" {
+        if secondaryButton == "Cancel" || secondaryButton == "Done" {
             alert.buttons[1].keyEquivalent = "\u{1b}"
+        }
+    }
+    if let tertiaryButton {
+        alert.addButton(withTitle: tertiaryButton)
+        if tertiaryButton == "Cancel" || tertiaryButton == "Done" {
+            alert.buttons[2].keyEquivalent = "\u{1b}"
         }
     }
     alert.buttons[0].keyEquivalent = "\r"
@@ -1327,23 +1503,30 @@ func runInteractiveInstaller() -> Int32 {
             information: """
             Apple AppDev Workflow is enabled for Xcode. Both lifecycle hooks passed an automatic sanitized-PATH postflight. Xcode's active Codex agent was not changed.
 
-            Before opening Xcode, use stock Codex to review and trust each lifecycle hook: UserPromptSubmit and Stop.
+            Before opening Xcode, review and trust each lifecycle hook: UserPromptSubmit and Stop. Review Hooks opens Xcode's stock Codex in Terminal. Stock Codex may first ask you to trust its dedicated empty hook-review workspace; that trust does not apply to your home or projects. Inspect each hook command and source before trusting it. If startup hook review is not shown, enter /hooks.
 
             Rollback backup:
             \(backupPath)
             """,
             style: .informational,
-            primaryButton: "Done",
-            secondaryButton: backup == nil ? nil : "Copy Rollback Path"
+            primaryButton: "Review Hooks",
+            secondaryButton: backup == nil ? "Done" : "Copy Rollback Path",
+            tertiaryButton: backup == nil ? nil : "Done"
         )
-        if completion == .alertSecondButtonReturn, let backup {
+        if completion == .alertFirstButtonReturn {
+            launchHookReviewOrPresentFailure()
+        } else if completion == .alertSecondButtonReturn, let backup {
             copyToPasteboard(backup.path)
-            _ = presentAlert(
+            let copied = presentAlert(
                 message: "Rollback path copied",
-                information: "Keep the installer DMG if you may need to restore this backup later.",
+                information: "Keep the installer DMG if you may need to restore this backup later. Review both lifecycle hooks before opening Xcode.",
                 style: .informational,
-                primaryButton: "Done"
+                primaryButton: "Review Hooks",
+                secondaryButton: "Done"
             )
+            if copied == .alertFirstButtonReturn {
+                launchHookReviewOrPresentFailure()
+            }
         }
         return 0
     } catch {
@@ -1373,6 +1556,7 @@ func main() -> Int32 {
         let modeCount = [
             options.installAgent,
             options.installPluginProfile,
+            options.reviewPluginHooks,
             options.restorePluginBackup != nil,
         ].filter { $0 }.count
         guard modeCount == 1 else {
@@ -1387,6 +1571,8 @@ func main() -> Int32 {
             try installAgent(options: options)
         } else if options.installPluginProfile {
             _ = try installPackagedPluginProfile(options: options)
+        } else if options.reviewPluginHooks {
+            try reviewPluginHooks(options: options)
         } else if let backup = options.restorePluginBackup {
             let source = try validatePathComponent(options.pluginSource, label: "plugin source")
             let pluginName = try validatePathComponent(options.pluginName, label: "plugin name")

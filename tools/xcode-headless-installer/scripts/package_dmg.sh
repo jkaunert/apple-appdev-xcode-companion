@@ -511,6 +511,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
       echo "dry-run: render branded installer icon into \"$RESOURCES_DIR/$APP_ICON_NAME\""
     fi
     echo "dry-run: validate --install-plugin-profile without changing Xcode home"
+    echo "dry-run: validate --review-plugin-hooks without launching stock Codex"
   fi
   if [[ -n "$AGENT_RUNTIME" ]]; then
     echo "dry-run: copy runtime payload into \"$PAYLOAD_DIR\""
@@ -733,6 +734,12 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
     --plugin-name "$PLUGIN_NAME" \
     --plugin-version "$PLUGIN_VERSION" \
     --xcode-codex-home "$PACKAGE_VALIDATION_HOME"
+  "$APP_PATH/Contents/MacOS/$APP_EXECUTABLE" \
+    --review-plugin-hooks \
+    --dry-run \
+    --xcode-build package-validation \
+    --agents-root "$OUTPUT_DIR/package-validation-agents" \
+    --xcode-codex-home "$PACKAGE_VALIDATION_HOME"
   rm -rf "$PACKAGE_VALIDATION_HOME"
 fi
 if [[ -n "$AGENT_RUNTIME" ]]; then
@@ -760,10 +767,17 @@ To install the embedded xcode-headless plugin profile:
   1. Quit Xcode.
   2. Double-click $BUNDLE_NAME.app.
   3. Review the confirmation and click Install.
+  4. Click Review Hooks, inspect both commands in stock Codex, and trust them.
+
+Stock Codex may first ask you to trust its dedicated empty onboarding
+workspace under Xcode's Codex home. That trust does not apply to your home or
+application projects.
 
 The installer backs up the prior profile and Xcode Codex config, enables the
 public plugin identity, and disables conflicting identities without deleting
-their caches. The completion dialog shows the exact rollback path.
+their caches. The completion dialog shows the exact rollback path and opens
+the explicit stock Codex hook-review flow in Terminal. It does not pre-trust
+either hook.
 
 For terminal automation from this mounted DMG directory:
   ./$BUNDLE_NAME.app/Contents/MacOS/$APP_EXECUTABLE --install-plugin-profile

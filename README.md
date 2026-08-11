@@ -54,15 +54,21 @@ The installer validates the embedded profile, refuses symbolic-link payloads,
 backs up the prior profile and Xcode Codex config, enables the public
 marketplace identity, disables conflicting identities without deleting their
 caches, runs `UserPromptSubmit` and `Stop` under Xcode's sanitized `PATH`
-before config activation, presents a native double-click installation flow with a copyable
-validated restore path, and leaves
+before config activation, presents a native double-click installation flow with
+a copyable validated restore path, offers a primary **Review Hooks** action
+that opens Xcode's stock Codex review as Terminal's foreground job inside a
+dedicated empty onboarding workspace, and leaves
 `Agents/XcodeVersions/<build>/codex` unchanged.
 
 Lifecycle-hook trust remains an explicit user decision. The installer does not
 pre-trust the embedded `UserPromptSubmit` routing hook or `Stop` contract
 guard. The self-contained commands differ from public companion `v0.2.0`, so
-both require explicit review after the maintenance install. The exact procedure is documented in
-the [installer guide](tools/xcode-headless-installer/README.md#review-and-trust-the-hooks).
+both require explicit review after the maintenance install. The installer
+launches the stock review surface but never writes `hooks.state`; command and
+source approval remains the user's decision. A one-time workspace-trust prompt,
+when needed, applies only to that onboarding directory rather than the user's
+home or project directories. The exact procedure is documented in the
+[installer guide](tools/xcode-headless-installer/README.md#review-and-trust-the-hooks).
 
 ## Development
 

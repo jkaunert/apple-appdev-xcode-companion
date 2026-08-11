@@ -88,7 +88,11 @@ click **Install**. Before the plugin is enabled, the installer runs both
 `PATH=/usr/bin:/bin:/usr/sbin:/sbin`. A failed postflight triggers the existing
 transactional profile-and-config rollback. The completion dialog confirms that
 both postflights passed, Xcode's active Codex agent was not changed, and a
-copyable rollback path is available.
+copyable rollback path is available. Click **Review Hooks** to open the exact
+Xcode-shipped stock Codex binary as Terminal's foreground job with Xcode's
+separate Codex home. If stock Codex asks for directory trust first, the path is
+the dedicated empty `.tmp/hook-trust-onboarding/workspace` under that home—not
+the user's home or an application project.
 
 For terminal automation, change into the mounted DMG directory and invoke the
 same signed app executable explicitly:
@@ -139,8 +143,18 @@ The installer enables the plugin profile but deliberately does not pre-trust
 its lifecycle hooks. Trust is a separate, explicit user action because hook
 commands run outside the Codex sandbox.
 
+The native completion dialog makes **Review Hooks** the primary next action.
+It creates a one-use Terminal launcher for the installer's
+`--review-plugin-hooks` mode; that mode resolves the active Xcode build, runs
+the exact Xcode-shipped Codex binary with Xcode's CodingAssistant `CODEX_HOME`,
+keeps it in Terminal's foreground process group, and deletes the launcher when
+the terminal session exits. Stock Codex may ask once to trust the dedicated
+empty `.tmp/hook-trust-onboarding/workspace`; accepting that prompt does not
+trust the user's home or application projects. The installer does not calculate
+trust hashes or write `hooks.state`.
+
 With Xcode still closed, launch the stock Codex TUI from the Xcode
-CodingAssistant home:
+CodingAssistant home manually if the native handoff is unavailable:
 
 ```bash
 XCODE_BUILD="$(xcodebuild -version | awk '/Build version/{print $3}')"
