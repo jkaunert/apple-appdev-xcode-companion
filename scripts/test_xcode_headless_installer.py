@@ -20,16 +20,30 @@ SOURCE = (
 PACKAGE_SCRIPT = (
     REPO_ROOT / "tools" / "xcode-headless-installer" / "scripts" / "package_dmg.sh"
 )
+FETCH_HOOK_RUNTIME_SCRIPT = (
+    REPO_ROOT
+    / "tools"
+    / "xcode-headless-installer"
+    / "scripts"
+    / "fetch_hook_runtime.sh"
+)
 PLUGIN_NAME = "apple-appdev-workflow"
 PLUGIN_VERSION = "0.2.0"
 PLUGIN_SOURCE = "apple-developer-tools"
 LOCAL_PLUGIN_SOURCE = "LocalAppleWorkflow"
 REQUIRED_PROFILE_FILES = (
-    "hooks/hooks.json",
     "hooks/apple_router.mjs",
     "hooks/apple_contract_guard.mjs",
     "routing/router-policy.json",
     "routing/top-level-owner-kernel.md",
+)
+USER_PROMPT_SUBMIT_COMMAND = (
+    '"$PLUGIN_ROOT/hooks/runtime/node" '
+    '"$PLUGIN_ROOT/hooks/apple_router.mjs"'
+)
+STOP_COMMAND = (
+    '"$PLUGIN_ROOT/hooks/runtime/node" '
+    '"$PLUGIN_ROOT/hooks/apple_contract_guard.mjs"'
 )
 
 
@@ -71,8 +85,85 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             path = profile / relative_path
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(f"fixture:{relative_path}\n")
+        hooks = {
+            "hooks": {
+                "UserPromptSubmit": [
+                    {
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": USER_PROMPT_SUBMIT_COMMAND,
+                                "timeout": 5,
+                            }
+                        ]
+                    }
+                ],
+                "Stop": [
+                    {
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": STOP_COMMAND,
+                                "timeout": 5,
+                            }
+                        ]
+                    }
+                ],
+            }
+        }
+        hooks_path = profile / "hooks" / "hooks.json"
+        hooks_path.write_text(json.dumps(hooks, indent=2) + "\n")
+        runtime = profile / "hooks" / "runtime" / "node"
+        runtime.parent.mkdir(parents=True)
+        runtime.write_text(
+            "#!/bin/sh\n"
+            "if [ \"${1:-}\" = \"--version\" ]; then\n"
+            "  printf '%s\\n' 'v24.19.0'\n"
+            "  exit 0\n"
+            "fi\n"
+            "INPUT=$(/bin/cat)\n"
+            "case \"${1:-}\" in\n"
+            "  *apple_router.mjs)\n"
+            "    printf '%s\\n' '{\"continue\":true,\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"Routing: orchestrator-led\\nSelected owner: apple-appdev-workflow:apple-app-orchestrator\\nTop-level owner injection: applied\\nReason: prompt-signal:ios\"}}'\n"
+            "    ;;\n"
+            "  *apple_contract_guard.mjs)\n"
+            "    case \"$INPUT\" in\n"
+            "      *'\"stop_hook_active\":true'*) exit 0 ;;\n"
+            "    esac\n"
+            "    printf '%s\\n' '{\"decision\":\"block\",\"reason\":\"Apple workflow final-output contract failed: fixture\"}'\n"
+            "    ;;\n"
+            "  *) exit 1 ;;\n"
+            "esac\n"
+        )
+        runtime.chmod(0o755)
+        (runtime.parent / "LICENSE").write_text("Fixture runtime license.\n")
         (profile / "marker.txt").write_text(marker + "\n")
         return payload_root, profile
+
+    def make_package_hook_runtime(self, root: Path) -> tuple[Path, Path]:
+        root.mkdir(parents=True, exist_ok=True)
+        runtime = root / "node"
+        runtime.write_text(
+            "#!/bin/sh\n"
+            "if [ \"${1:-}\" = \"--version\" ]; then\n"
+            "  printf '%s\\n' 'v24.19.0'\n"
+            "  exit 0\n"
+            "fi\n"
+            "exit 0\n"
+        )
+        runtime.chmod(0o755)
+        license_path = root / "LICENSE"
+        license_path.write_text("Fixture runtime license.\n")
+        return runtime, license_path
+
+    def package_hook_arguments(self, root: Path) -> list[str]:
+        runtime, license_path = self.make_package_hook_runtime(root)
+        return [
+            "--hook-runtime",
+            str(runtime),
+            "--hook-runtime-license",
+            str(license_path),
+        ]
 
     def run_installer(
         self,
@@ -167,6 +258,10 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             )
 
             self.assertIn("Xcode active Codex agent remains unchanged", result.stdout)
+            self.assertIn(
+                "would postflight UserPromptSubmit and Stop under sanitized PATH",
+                result.stdout,
+            )
             self.assertFalse(xcode_home.exists())
 
     def test_plugin_profile_install_backs_up_and_restores_same_version(self) -> None:
@@ -188,9 +283,23 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             )
             config.write_text(original_config)
 
-            self.run_installer(*self.install_arguments(payload_root, xcode_home))
+            install_result = self.run_installer(
+                *self.install_arguments(payload_root, xcode_home)
+            )
 
             self.assertEqual((target / "marker.txt").read_text().strip(), "new")
+            self.assertIn(
+                "hook postflight passed under sanitized PATH: UserPromptSubmit",
+                install_result.stdout,
+            )
+            self.assertIn(
+                "hook postflight passed under sanitized PATH: Stop",
+                install_result.stdout,
+            )
+            self.assertIn(
+                "hook postflight passed under sanitized PATH: Stop one-retry guard",
+                install_result.stdout,
+            )
             installed_config = config.read_text()
             self.assertIn(
                 f'[plugins."{PLUGIN_NAME}@{PLUGIN_SOURCE}"]\nenabled = true',
@@ -305,6 +414,58 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             self.assertIn("must omit mcpServers", result.stderr)
             self.assertFalse(self.target(xcode_home).exists())
 
+    def test_plugin_profile_rejects_external_node_hook_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            payload_root, profile = self.make_payload(root, marker="invalid")
+            hooks_path = profile / "hooks" / "hooks.json"
+            hooks = json.loads(hooks_path.read_text())
+            hooks["hooks"]["UserPromptSubmit"][0]["hooks"][0]["command"] = (
+                'node "$PLUGIN_ROOT/hooks/apple_router.mjs"'
+            )
+            hooks_path.write_text(json.dumps(hooks, indent=2) + "\n")
+            xcode_home = root / "xcode-home"
+
+            result = self.run_installer(
+                *self.install_arguments(payload_root, xcode_home),
+                expected_returncode=1,
+            )
+
+            self.assertIn("must use the packaged hook runtime", result.stderr)
+            self.assertFalse(self.target(xcode_home).exists())
+
+    def test_hook_postflight_failure_restores_previous_profile_and_config(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            payload_root, profile = self.make_payload(root / "new", marker="new")
+            runtime = profile / "hooks" / "runtime" / "node"
+            runtime.write_text(
+                "#!/bin/sh\n"
+                "if [ \"${1:-}\" = \"--version\" ]; then\n"
+                "  printf '%s\\n' 'v24.19.0'\n"
+                "  exit 0\n"
+                "fi\n"
+                "exit 7\n"
+            )
+            runtime.chmod(0o755)
+            _, old_profile = self.make_payload(root / "old", marker="old")
+            xcode_home = root / "xcode-home"
+            target = self.target(xcode_home)
+            target.parent.mkdir(parents=True)
+            subprocess.run(["/bin/cp", "-R", str(old_profile), str(target)], check=True)
+            config = self.config_path(xcode_home)
+            original_config = 'model = "gpt-5.5"\n'
+            config.write_text(original_config)
+
+            result = self.run_installer(
+                *self.install_arguments(payload_root, xcode_home),
+                expected_returncode=1,
+            )
+
+            self.assertIn("UserPromptSubmit hook postflight failed", result.stderr)
+            self.assertEqual((target / "marker.txt").read_text().strip(), "old")
+            self.assertEqual(config.read_text(), original_config)
+
     def test_plugin_profile_rejects_path_traversal_version(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -405,6 +566,7 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             root = Path(temp_dir)
             _, profile = self.make_payload(root, marker="package")
             output_dir = root / "output"
+            hook_arguments = self.package_hook_arguments(root / "hook-runtime")
 
             result = subprocess.run(
                 [
@@ -413,8 +575,11 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
                     str(profile),
                     "--plugin-version",
                     PLUGIN_VERSION,
+                    "--version",
+                    "0.2.1",
                     "--output-dir",
                     str(output_dir),
+                    *hook_arguments,
                     "--dry-run",
                 ],
                 text=True,
@@ -431,12 +596,43 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
                 result.stdout,
             )
             self.assertNotIn("copy runtime payload", result.stdout)
+            self.assertIn("embed self-contained hook runtime", result.stdout)
+            self.assertIn(
+                "AppleAppDevXcodeHeadlessInstaller-0.2.1.dmg",
+                result.stdout,
+            )
+            self.assertNotIn(
+                "AppleAppDevXcodeHeadlessInstaller-0.2.0.dmg",
+                result.stdout,
+            )
+            self.assertFalse(output_dir.exists())
+
+    def test_hook_runtime_fetch_dry_run_is_pinned_and_non_mutating(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "hook-runtime"
+
+            result = subprocess.run(
+                [
+                    str(FETCH_HOOK_RUNTIME_SCRIPT),
+                    "--output-dir",
+                    str(output_dir),
+                    "--dry-run",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertIn("node_version: v24.19.0", result.stdout)
+            self.assertIn("nodejs.org/dist/v24.19.0", result.stdout)
             self.assertFalse(output_dir.exists())
 
     def test_package_notarization_requires_release_signing_mode(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             _, profile = self.make_payload(root, marker="package")
+            hook_arguments = self.package_hook_arguments(root / "hook-runtime")
 
             result = subprocess.run(
                 [
@@ -446,6 +642,7 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
                     "--notarize",
                     "--keychain-profile",
                     "fixture-profile",
+                    *hook_arguments,
                     "--dry-run",
                 ],
                 text=True,
@@ -460,6 +657,7 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             _, profile = self.make_payload(root, marker="package")
+            hook_arguments = self.package_hook_arguments(root / "hook-runtime")
 
             result = subprocess.run(
                 [
@@ -468,6 +666,7 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
                     str(profile),
                     "--plugin-version",
                     "../escape",
+                    *hook_arguments,
                     "--dry-run",
                 ],
                 text=True,
@@ -477,6 +676,30 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 2)
             self.assertIn("safe path component", result.stderr)
+
+    def test_package_rejects_path_traversal_app_version(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _, profile = self.make_payload(root, marker="package")
+            hook_arguments = self.package_hook_arguments(root / "hook-runtime")
+
+            result = subprocess.run(
+                [
+                    str(PACKAGE_SCRIPT),
+                    "--plugin-profile",
+                    str(profile),
+                    "--version",
+                    "../escape",
+                    *hook_arguments,
+                    "--dry-run",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("app version must be one safe path component", result.stderr)
 
 
 if __name__ == "__main__":

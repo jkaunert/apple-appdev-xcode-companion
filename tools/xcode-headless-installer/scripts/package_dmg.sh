@@ -10,6 +10,8 @@ AGENT_URL=""
 PLUGIN_PROFILE=""
 PLUGIN_VERSION=""
 PLUGIN_NAME="apple-appdev-workflow"
+HOOK_RUNTIME=""
+HOOK_RUNTIME_LICENSE=""
 OUTPUT_DIR=""
 OUTPUT_DMG=""
 BUNDLE_ID="com.joshuakaunert.apple-appdev-workflow.xcode-headless-installer"
@@ -39,6 +41,9 @@ Payload options:
   --plugin-profile PATH     Rendered and validated xcode-headless plugin profile.
   --plugin-version VALUE    Embedded plugin version. Defaults to its manifest version.
   --plugin-name VALUE       Embedded plugin name. Defaults to apple-appdev-workflow.
+  --hook-runtime PATH       Self-contained Node executable embedded with plugin hooks.
+  --hook-runtime-license PATH
+                            License file distributed beside the hook runtime.
   --agent-runtime PATH      Optional Codex runtime binary to embed.
   --agent-version VALUE     Agent payload directory name. Defaults to runtime version plus timestamp.
   --agent-url URL           Agent metadata URL. Defaults to local-fork-runtime://<agent-version>/codex.
@@ -80,6 +85,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --plugin-name)
       PLUGIN_NAME="${2:-}"
+      shift 2
+      ;;
+    --hook-runtime)
+      HOOK_RUNTIME="${2:-}"
+      shift 2
+      ;;
+    --hook-runtime-license)
+      HOOK_RUNTIME_LICENSE="${2:-}"
       shift 2
       ;;
     --agent-runtime)
@@ -183,6 +196,33 @@ runtime_version() {
   "$AGENT_RUNTIME" --version | awk '{print $2; exit}'
 }
 
+hook_runtime_version() {
+  "$HOOK_RUNTIME" --version | awk 'NR == 1 {print $1; exit}'
+}
+
+require_self_contained_hook_runtime() {
+  local architecture
+  local dependency
+  architecture="$(uname -m)"
+  if ! file "$HOOK_RUNTIME" | grep -q "Mach-O .* $architecture"; then
+    echo "error: --hook-runtime must be a Mach-O $architecture executable" >&2
+    exit 1
+  fi
+  while IFS= read -r dependency; do
+    dependency="${dependency#"${dependency%%[![:space:]]*}"}"
+    dependency="${dependency%% (*}"
+    [[ -n "$dependency" && "$dependency" != "$HOOK_RUNTIME:" ]] || continue
+    case "$dependency" in
+      /usr/lib/*|/System/Library/*)
+        ;;
+      *)
+        echo "error: --hook-runtime has non-system dependency: $dependency" >&2
+        exit 1
+        ;;
+    esac
+  done < <(otool -L "$HOOK_RUNTIME")
+}
+
 sanitize_version() {
   printf '%s' "$1" | tr -c 'A-Za-z0-9._+-' '-'
 }
@@ -212,6 +252,14 @@ manifest_has_key() {
   echo "error: pass --plugin-profile, --agent-runtime, or both" >&2
   exit 2
 }
+if [[ -n "$PLUGIN_PROFILE" && -z "$HOOK_RUNTIME" ]]; then
+  echo "error: --plugin-profile requires --hook-runtime" >&2
+  exit 2
+fi
+if [[ -n "$PLUGIN_PROFILE" && -z "$HOOK_RUNTIME_LICENSE" ]]; then
+  echo "error: --plugin-profile requires --hook-runtime-license" >&2
+  exit 2
+fi
 [[ -n "$BUNDLE_ID" ]] || { echo "error: --bundle-id cannot be empty" >&2; exit 2; }
 [[ -n "$APP_BUILD" ]] || { echo "error: --build cannot be empty" >&2; exit 2; }
 [[ -n "$MIN_SYSTEM_VERSION" ]] || { echo "error: --min-system cannot be empty" >&2; exit 2; }
@@ -238,6 +286,10 @@ has shasum || { echo "error: shasum is required" >&2; exit 1; }
 has hdiutil || { echo "error: hdiutil is required" >&2; exit 1; }
 has codesign || { echo "error: codesign is required" >&2; exit 1; }
 has plutil || { echo "error: plutil is required" >&2; exit 1; }
+if [[ -n "$PLUGIN_PROFILE" && "$DRY_RUN" != "1" ]]; then
+  has file || { echo "error: file is required to validate the hook runtime" >&2; exit 1; }
+  has otool || { echo "error: otool is required to validate the hook runtime" >&2; exit 1; }
+fi
 if [[ "$NOTARIZE" == "1" ]]; then
   has xcrun || { echo "error: xcrun is required for notarization" >&2; exit 1; }
   has spctl || { echo "error: spctl is required for notarization validation" >&2; exit 1; }
@@ -266,8 +318,34 @@ if [[ -n "$AGENT_RUNTIME" ]]; then
   SOURCE_RUNTIME_SHA256="$(shasum -a 256 "$AGENT_RUNTIME" | awk '{print $1}')"
 fi
 
+HOOK_RUNTIME_VERSION=""
+SOURCE_HOOK_RUNTIME_SHA256=""
+FINAL_HOOK_RUNTIME_SHA256=""
+HOOK_RUNTIME_LICENSE_SHA256=""
+if [[ -n "$PLUGIN_PROFILE" ]]; then
+  [[ -x "$HOOK_RUNTIME" && -f "$HOOK_RUNTIME" && ! -L "$HOOK_RUNTIME" ]] || {
+    echo "error: --hook-runtime must be an executable regular file, not a symlink: $HOOK_RUNTIME" >&2
+    exit 1
+  }
+  [[ -f "$HOOK_RUNTIME_LICENSE" && ! -L "$HOOK_RUNTIME_LICENSE" ]] || {
+    echo "error: --hook-runtime-license must be a regular file, not a symlink: $HOOK_RUNTIME_LICENSE" >&2
+    exit 1
+  }
+  HOOK_RUNTIME_VERSION="$(hook_runtime_version)"
+  [[ "$HOOK_RUNTIME_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]] || {
+    echo "error: could not determine Node version from $HOOK_RUNTIME --version" >&2
+    exit 1
+  }
+  SOURCE_HOOK_RUNTIME_SHA256="$(shasum -a 256 "$HOOK_RUNTIME" | awk '{print $1}')"
+  HOOK_RUNTIME_LICENSE_SHA256="$(shasum -a 256 "$HOOK_RUNTIME_LICENSE" | awk '{print $1}')"
+  if [[ "$DRY_RUN" != "1" ]]; then
+    require_self_contained_hook_runtime
+  fi
+fi
+
 PLUGIN_MANIFEST_SHA256=""
 PLUGIN_CORE_SHA256=""
+SOURCE_PLUGIN_CORE_SHA256=""
 APP_ICON_SOURCE=""
 if [[ -n "$PLUGIN_PROFILE" ]]; then
   [[ -d "$PLUGIN_PROFILE" ]] || {
@@ -318,7 +396,7 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
     }
   done
   PLUGIN_MANIFEST_SHA256="$(shasum -a 256 "$PLUGIN_MANIFEST" | awk '{print $1}')"
-  PLUGIN_CORE_SHA256="$({
+  SOURCE_PLUGIN_CORE_SHA256="$({
     for relative_path in "${CORE_FILES[@]}"; do
       file_hash="$(shasum -a 256 "$PLUGIN_PROFILE/$relative_path" | awk '{print $1}')"
       printf '%s  %s\n' "$file_hash" "$relative_path"
@@ -334,6 +412,7 @@ fi
 if [[ -z "$APP_VERSION" ]]; then
   APP_VERSION="${PLUGIN_VERSION:-0.1.0}"
 fi
+require_safe_component "app version" "$APP_VERSION"
 if [[ -z "$OUTPUT_DIR" ]]; then
   OUTPUT_DIR="/tmp/apple-appdev-xcode-headless-installer"
 fi
@@ -341,10 +420,7 @@ if [[ "$OUTPUT_DIR" == "/" || "$OUTPUT_DIR" == "//" || "$OUTPUT_DIR" == "${HOME:
   echo "error: --output-dir must be a dedicated package directory" >&2
   exit 2
 fi
-PACKAGE_SUFFIX="${PLUGIN_VERSION:-$AGENT_VERSION}"
-if [[ -n "$PLUGIN_VERSION" && -n "$AGENT_VERSION" ]]; then
-  PACKAGE_SUFFIX="$PLUGIN_VERSION-with-agent-$AGENT_VERSION"
-fi
+PACKAGE_SUFFIX="$APP_VERSION"
 if [[ -z "$OUTPUT_DMG" ]]; then
   OUTPUT_DMG="$OUTPUT_DIR/${BUNDLE_NAME}-${PACKAGE_SUFFIX}.dmg"
 fi
@@ -374,11 +450,15 @@ DMG_MANIFEST_PATH="$(basename "$OUTPUT_DMG")"
 NOTARY_MANIFEST_PATH="$(basename "$NOTARY_RESULT")"
 PAYLOAD_DIR=""
 PLUGIN_PAYLOAD_DIR=""
+HOOK_RUNTIME_DESTINATION=""
+HOOK_RUNTIME_LICENSE_DESTINATION=""
 if [[ -n "$AGENT_RUNTIME" ]]; then
   PAYLOAD_DIR="$RESOURCES_DIR/XcodeAgent/$AGENT_VERSION"
 fi
 if [[ -n "$PLUGIN_PROFILE" ]]; then
   PLUGIN_PAYLOAD_DIR="$RESOURCES_DIR/XcodePluginProfile/$PLUGIN_NAME/$PLUGIN_VERSION"
+  HOOK_RUNTIME_DESTINATION="$PLUGIN_PAYLOAD_DIR/hooks/runtime/node"
+  HOOK_RUNTIME_LICENSE_DESTINATION="$PLUGIN_PAYLOAD_DIR/hooks/runtime/LICENSE"
 fi
 
 echo "Xcode-headless installer package plan"
@@ -390,7 +470,12 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
   echo "  plugin_name: $PLUGIN_NAME"
   echo "  plugin_version: $PLUGIN_VERSION"
   echo "  plugin_manifest_sha256: $PLUGIN_MANIFEST_SHA256"
-  echo "  plugin_core_sha256: $PLUGIN_CORE_SHA256"
+  echo "  source_plugin_core_sha256: $SOURCE_PLUGIN_CORE_SHA256"
+  echo "  hook_runtime: $HOOK_RUNTIME"
+  echo "  hook_runtime_version: $HOOK_RUNTIME_VERSION"
+  echo "  source_hook_runtime_sha256: $SOURCE_HOOK_RUNTIME_SHA256"
+  echo "  hook_runtime_license: $HOOK_RUNTIME_LICENSE"
+  echo "  hook_runtime_license_sha256: $HOOK_RUNTIME_LICENSE_SHA256"
   echo "  plugin_payload_destination: $PLUGIN_PAYLOAD_DIR"
   if [[ -n "$APP_ICON_SOURCE" ]]; then
     echo "  app_icon_source: $APP_ICON_SOURCE"
@@ -419,6 +504,9 @@ if [[ "$DRY_RUN" == "1" ]]; then
   echo "dry-run: swiftc -O -target \"$SWIFT_TARGET\" -o \"$BUILD_BIN\" \"$TOOL_DIR/Sources/XcodeHeadlessInstaller/main.swift\""
   if [[ -n "$PLUGIN_PROFILE" ]]; then
     echo "dry-run: copy xcode-headless plugin profile into \"$PLUGIN_PAYLOAD_DIR\""
+    echo "dry-run: embed self-contained hook runtime and license in \"$PLUGIN_PAYLOAD_DIR/hooks/runtime\""
+    echo "dry-run: rewrite UserPromptSubmit and Stop to the packaged hook runtime"
+    echo "dry-run: codesign packaged hook runtime with hardened runtime and allow-jit entitlements"
     if [[ -n "$APP_ICON_SOURCE" ]]; then
       echo "dry-run: render branded installer icon into \"$RESOURCES_DIR/$APP_ICON_NAME\""
     fi
@@ -454,6 +542,26 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
   mkdir -p "$(dirname "$PLUGIN_PAYLOAD_DIR")"
   cp -R -X "$PLUGIN_PROFILE" "$PLUGIN_PAYLOAD_DIR"
   xattr -c -r "$PLUGIN_PAYLOAD_DIR"
+  mkdir -p "$(dirname "$HOOK_RUNTIME_DESTINATION")"
+  cp -p "$HOOK_RUNTIME" "$HOOK_RUNTIME_DESTINATION"
+  cp -p "$HOOK_RUNTIME_LICENSE" "$HOOK_RUNTIME_LICENSE_DESTINATION"
+  chmod 755 "$HOOK_RUNTIME_DESTINATION"
+  chmod 644 "$HOOK_RUNTIME_LICENSE_DESTINATION"
+  USER_PROMPT_SUBMIT_COMMAND='"$PLUGIN_ROOT/hooks/runtime/node" "$PLUGIN_ROOT/hooks/apple_router.mjs"'
+  STOP_COMMAND='"$PLUGIN_ROOT/hooks/runtime/node" "$PLUGIN_ROOT/hooks/apple_contract_guard.mjs"'
+  EMBEDDED_HOOKS_JSON="$PLUGIN_PAYLOAD_DIR/hooks/hooks.json"
+  plutil -replace 'hooks.UserPromptSubmit.0.hooks.0.command' \
+    -string "$USER_PROMPT_SUBMIT_COMMAND" "$EMBEDDED_HOOKS_JSON"
+  plutil -replace 'hooks.Stop.0.hooks.0.command' \
+    -string "$STOP_COMMAND" "$EMBEDDED_HOOKS_JSON"
+  [[ "$(manifest_value 'hooks.UserPromptSubmit.0.hooks.0.command' "$EMBEDDED_HOOKS_JSON")" == "$USER_PROMPT_SUBMIT_COMMAND" ]] || {
+    echo "error: failed to rewrite UserPromptSubmit to the packaged hook runtime" >&2
+    exit 1
+  }
+  [[ "$(manifest_value 'hooks.Stop.0.hooks.0.command' "$EMBEDDED_HOOKS_JSON")" == "$STOP_COMMAND" ]] || {
+    echo "error: failed to rewrite Stop to the packaged hook runtime" >&2
+    exit 1
+  }
 fi
 
 if [[ -n "$APP_ICON_SOURCE" ]]; then
@@ -539,6 +647,34 @@ $APP_ICON_PLIST
 </plist>
 EOF
 
+if [[ -n "$PLUGIN_PROFILE" ]]; then
+  if [[ -n "$SIGN_IDENTITY" ]]; then
+    codesign --force --options runtime --timestamp --entitlements "$AGENT_ENTITLEMENTS" \
+      --identifier "$BUNDLE_ID.hook-runtime.node" --sign "$SIGN_IDENTITY" \
+      "$HOOK_RUNTIME_DESTINATION"
+  else
+    codesign --force --sign - "$HOOK_RUNTIME_DESTINATION"
+  fi
+  codesign --verify --strict --verbose=2 "$HOOK_RUNTIME_DESTINATION"
+  EMBEDDED_HOOK_RUNTIME_VERSION="$(
+    /usr/bin/env -i \
+      HOME="${HOME:-/var/empty}" \
+      PATH=/usr/bin:/bin:/usr/sbin:/sbin \
+      "$HOOK_RUNTIME_DESTINATION" --version
+  )"
+  [[ "$EMBEDDED_HOOK_RUNTIME_VERSION" == "$HOOK_RUNTIME_VERSION" ]] || {
+    echo "error: embedded hook runtime version changed after signing" >&2
+    exit 1
+  }
+  FINAL_HOOK_RUNTIME_SHA256="$(shasum -a 256 "$HOOK_RUNTIME_DESTINATION" | awk '{print $1}')"
+  PLUGIN_CORE_SHA256="$({
+    for relative_path in "${CORE_FILES[@]}"; do
+      file_hash="$(shasum -a 256 "$PLUGIN_PAYLOAD_DIR/$relative_path" | awk '{print $1}')"
+      printf '%s  %s\n' "$file_hash" "$relative_path"
+    done
+  } | shasum -a 256 | awk '{print $1}')"
+fi
+
 if [[ -n "$AGENT_RUNTIME" ]]; then
   if [[ -n "$SIGN_IDENTITY" ]]; then
     codesign --force --options runtime --timestamp --entitlements "$AGENT_ENTITLEMENTS" --identifier codex --sign "$SIGN_IDENTITY" "$PAYLOAD_DIR/codex"
@@ -589,6 +725,15 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
     --plugin-payload-root "$RESOURCES_DIR/XcodePluginProfile" \
     --plugin-name "$PLUGIN_NAME" \
     --plugin-version "$PLUGIN_VERSION"
+  PACKAGE_VALIDATION_HOME="$OUTPUT_DIR/package-validation-xcode-home"
+  rm -rf "$PACKAGE_VALIDATION_HOME"
+  "$APP_PATH/Contents/MacOS/$APP_EXECUTABLE" \
+    --install-plugin-profile \
+    --plugin-payload-root "$RESOURCES_DIR/XcodePluginProfile" \
+    --plugin-name "$PLUGIN_NAME" \
+    --plugin-version "$PLUGIN_VERSION" \
+    --xcode-codex-home "$PACKAGE_VALIDATION_HOME"
+  rm -rf "$PACKAGE_VALIDATION_HOME"
 fi
 if [[ -n "$AGENT_RUNTIME" ]]; then
   "$APP_PATH/Contents/MacOS/$APP_EXECUTABLE" \
@@ -629,6 +774,10 @@ Restore the complete state from this mounted DMG directory with:
 Embedded plugin: $PLUGIN_NAME $PLUGIN_VERSION
 Plugin manifest SHA-256: $PLUGIN_MANIFEST_SHA256
 Plugin routing-core SHA-256: $PLUGIN_CORE_SHA256
+Source routing-core SHA-256: $SOURCE_PLUGIN_CORE_SHA256
+Embedded hook runtime: Node $HOOK_RUNTIME_VERSION
+Embedded hook runtime SHA-256: $FINAL_HOOK_RUNTIME_SHA256
+Hook runtime license SHA-256: $HOOK_RUNTIME_LICENSE_SHA256
 EOF
 fi
 if [[ -n "$AGENT_RUNTIME" ]]; then
@@ -686,7 +835,7 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
 fi
 cat > "$PACKAGE_MANIFEST" <<EOF
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "created_at": "$(timestamp)",
   "source_commit": "$(json_escape "$SOURCE_COMMIT")",
   "source_dirty": $SOURCE_DIRTY,
@@ -708,7 +857,17 @@ cat > "$PACKAGE_MANIFEST" <<EOF
     "name": "$(json_escape "$PLUGIN_NAME")",
     "version": "$(json_escape "$PLUGIN_VERSION")",
     "manifest_sha256": "$PLUGIN_MANIFEST_SHA256",
-    "routing_core_sha256": "$PLUGIN_CORE_SHA256"
+    "source_routing_core_sha256": "$SOURCE_PLUGIN_CORE_SHA256",
+    "routing_core_sha256": "$PLUGIN_CORE_SHA256",
+    "hook_runtime": {
+      "included": $([[ -n "$PLUGIN_PROFILE" ]] && printf true || printf false),
+      "version": "$(json_escape "$HOOK_RUNTIME_VERSION")",
+      "source_sha256": "$SOURCE_HOOK_RUNTIME_SHA256",
+      "final_sha256": "$FINAL_HOOK_RUNTIME_SHA256",
+      "license_sha256": "$HOOK_RUNTIME_LICENSE_SHA256",
+      "relative_path": "hooks/runtime/node",
+      "license_relative_path": "hooks/runtime/LICENSE"
+    }
   },
   "agent": {
     "included": $([[ -n "$AGENT_RUNTIME" ]] && printf true || printf false),
@@ -735,6 +894,10 @@ plugin_name: $PLUGIN_NAME
 plugin_version: $PLUGIN_VERSION
 plugin_manifest_sha256: $PLUGIN_MANIFEST_SHA256
 plugin_core_sha256: $PLUGIN_CORE_SHA256
+source_plugin_core_sha256: $SOURCE_PLUGIN_CORE_SHA256
+hook_runtime_version: $HOOK_RUNTIME_VERSION
+source_hook_runtime_sha256: $SOURCE_HOOK_RUNTIME_SHA256
+final_hook_runtime_sha256: $FINAL_HOOK_RUNTIME_SHA256
 
 Plugin-profile install command after mounting the DMG:
   Double-click "$BUNDLE_NAME.app" in the mounted DMG.

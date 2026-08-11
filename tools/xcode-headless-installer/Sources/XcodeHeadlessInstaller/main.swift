@@ -1,6 +1,7 @@
 import Foundation
 import Darwin
 import AppKit
+import Dispatch
 
 struct InstallerError: Error, CustomStringConvertible {
     let description: String
@@ -29,6 +30,12 @@ struct PluginIdentity {
     let version: String
 }
 
+struct HookProcessResult {
+    let status: Int32
+    let stdout: String
+    let stderr: String
+}
+
 struct PluginInstallState: Codable {
     let schemaVersion: Int
     let source: String
@@ -41,6 +48,12 @@ struct PluginInstallState: Codable {
 let pluginInstallStateFilename = "install-state.json"
 let pluginInstallProfileDirectory = "previous-profile"
 let pluginInstallConfigFilename = "config.toml.before-install"
+let hookRuntimeRelativePath = "hooks/runtime/node"
+let hookRuntimeLicenseRelativePath = "hooks/runtime/LICENSE"
+let userPromptSubmitHookCommand =
+    "\"$PLUGIN_ROOT/hooks/runtime/node\" \"$PLUGIN_ROOT/hooks/apple_router.mjs\""
+let stopHookCommand =
+    "\"$PLUGIN_ROOT/hooks/runtime/node\" \"$PLUGIN_ROOT/hooks/apple_contract_guard.mjs\""
 
 func usage() -> String {
     """
@@ -74,6 +87,7 @@ func usage() -> String {
       -h, --help               Show this help.
 
     Plugin-profile installation never changes Xcode's active Codex agent.
+    The packaged profile contains its own hook runtime; no shell Node is used.
     Install and restore transactionally preserve the prior profile and config.
     """
 }
@@ -83,6 +97,14 @@ func expandedDirectoryURL(_ value: String) -> URL {
         fileURLWithPath: NSString(string: value).expandingTildeInPath,
         isDirectory: true
     )
+}
+
+func canonicalURL(_ url: URL, isDirectory: Bool) -> URL {
+    guard let resolved = Darwin.realpath(url.path, nil) else {
+        return url.standardizedFileURL
+    }
+    defer { Darwin.free(resolved) }
+    return URL(fileURLWithPath: String(cString: resolved), isDirectory: isDirectory)
 }
 
 func parseArguments(_ arguments: [String]) throws -> Options {
@@ -426,6 +448,37 @@ func readPluginManifest(at profile: URL) throws -> [String: Any] {
     return manifest
 }
 
+func readHooksManifest(at profile: URL) throws -> [String: Any] {
+    let hooksURL = profile.appendingPathComponent("hooks/hooks.json")
+    guard (try? hooksURL.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else {
+        throw InstallerError(description: "hooks manifest is missing: \(hooksURL.path)")
+    }
+    do {
+        let object = try JSONSerialization.jsonObject(with: Data(contentsOf: hooksURL))
+        guard let hooks = object as? [String: Any] else {
+            throw InstallerError(description: "hooks manifest must be a JSON object: \(hooksURL.path)")
+        }
+        return hooks
+    } catch let error as InstallerError {
+        throw error
+    } catch {
+        throw InstallerError(description: "hooks manifest is invalid: \(hooksURL.path)")
+    }
+}
+
+func hookCommand(in manifest: [String: Any], event: String) -> String? {
+    guard let hooks = manifest["hooks"] as? [String: Any],
+          let matchers = hooks[event] as? [[String: Any]],
+          matchers.count == 1,
+          let handlers = matchers[0]["hooks"] as? [[String: Any]],
+          handlers.count == 1,
+          handlers[0]["type"] as? String == "command"
+    else {
+        return nil
+    }
+    return handlers[0]["command"] as? String
+}
+
 func rejectSymbolicLinks(in profile: URL) throws {
     let rootValues = try profile.resourceValues(forKeys: [.isSymbolicLinkKey])
     if rootValues.isSymbolicLink == true {
@@ -452,7 +505,8 @@ func rejectSymbolicLinks(in profile: URL) throws {
 func validatePluginProfile(
     at profile: URL,
     expectedName: String? = nil,
-    expectedVersion: String? = nil
+    expectedVersion: String? = nil,
+    requireSelfContainedHooks: Bool = false
 ) throws -> PluginIdentity {
     let fileManager = FileManager.default
     try rejectSymbolicLinks(in: profile)
@@ -495,7 +549,194 @@ func validatePluginProfile(
             )
         }
     }
+    if requireSelfContainedHooks {
+        let runtime = profile.appendingPathComponent(hookRuntimeRelativePath)
+        let license = profile.appendingPathComponent(hookRuntimeLicenseRelativePath)
+        guard (try? runtime.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true,
+              fileManager.isExecutableFile(atPath: runtime.path)
+        else {
+            throw InstallerError(
+                description: "xcode-headless plugin payload lacks executable hook runtime: \(hookRuntimeRelativePath)"
+            )
+        }
+        guard (try? license.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else {
+            throw InstallerError(
+                description: "xcode-headless plugin payload lacks hook runtime license: \(hookRuntimeLicenseRelativePath)"
+            )
+        }
+        let hooks = try readHooksManifest(at: profile)
+        guard hookCommand(in: hooks, event: "UserPromptSubmit") == userPromptSubmitHookCommand else {
+            throw InstallerError(
+                description: "UserPromptSubmit must use the packaged hook runtime"
+            )
+        }
+        guard hookCommand(in: hooks, event: "Stop") == stopHookCommand else {
+            throw InstallerError(description: "Stop must use the packaged hook runtime")
+        }
+        let (status, output) = try run(runtime.path, ["--version"])
+        let version = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard status == 0,
+              version.range(of: #"^v[0-9]+\.[0-9]+\.[0-9]+"#, options: .regularExpression) != nil
+        else {
+            throw InstallerError(
+                description: "packaged hook runtime --version failed: \(version)"
+            )
+        }
+    }
     return PluginIdentity(name: name, version: version)
+}
+
+func runHookProcess(
+    executable: URL,
+    script: URL,
+    input: [String: Any],
+    environment: [String: String],
+    timeout: TimeInterval = 10
+) throws -> HookProcessResult {
+    let process = Process()
+    process.executableURL = executable
+    process.arguments = [script.path]
+    process.environment = environment
+    let inputPipe = Pipe()
+    let outputPipe = Pipe()
+    let errorPipe = Pipe()
+    process.standardInput = inputPipe
+    process.standardOutput = outputPipe
+    process.standardError = errorPipe
+    let finished = DispatchSemaphore(value: 0)
+    process.terminationHandler = { _ in finished.signal() }
+    try process.run()
+    var data = try JSONSerialization.data(withJSONObject: input, options: [.sortedKeys])
+    data.append(0x0A)
+    inputPipe.fileHandleForWriting.write(data)
+    try inputPipe.fileHandleForWriting.close()
+    if finished.wait(timeout: .now() + timeout) == .timedOut {
+        process.terminate()
+        if finished.wait(timeout: .now() + 2) == .timedOut {
+            Darwin.kill(process.processIdentifier, SIGKILL)
+            _ = finished.wait(timeout: .now() + 2)
+        }
+        throw InstallerError(description: "hook postflight timed out: \(script.lastPathComponent)")
+    }
+    process.waitUntilExit()
+    let stdout = String(
+        data: outputPipe.fileHandleForReading.readDataToEndOfFile(),
+        encoding: .utf8
+    ) ?? ""
+    let stderr = String(
+        data: errorPipe.fileHandleForReading.readDataToEndOfFile(),
+        encoding: .utf8
+    ) ?? ""
+    return HookProcessResult(status: process.terminationStatus, stdout: stdout, stderr: stderr)
+}
+
+func hookJSONOutput(_ result: HookProcessResult, label: String) throws -> [String: Any] {
+    guard result.status == 0 else {
+        throw InstallerError(
+            description: "\(label) hook postflight failed: \(result.stderr.trimmingCharacters(in: .whitespacesAndNewlines))"
+        )
+    }
+    let text = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let data = text.data(using: .utf8),
+          let object = try? JSONSerialization.jsonObject(with: data),
+          let output = object as? [String: Any]
+    else {
+        throw InstallerError(
+            description: "\(label) hook postflight emitted invalid JSON "
+                + "(stdout_bytes=\(result.stdout.utf8.count), "
+                + "stderr=\(result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)))"
+        )
+    }
+    return output
+}
+
+func postflightPluginHooks(at profile: URL, xcodeCodexHome: URL) throws {
+    let fileManager = FileManager.default
+    let canonicalProfile = canonicalURL(profile, isDirectory: true)
+    let runtime = canonicalProfile.appendingPathComponent(hookRuntimeRelativePath)
+    let router = canonicalProfile.appendingPathComponent("hooks/apple_router.mjs")
+    let guardScript = canonicalProfile.appendingPathComponent("hooks/apple_contract_guard.mjs")
+    let identifier = "installer-postflight-\(UUID().uuidString.lowercased())"
+    let stateRoot = xcodeCodexHome
+        .appendingPathComponent(".tmp/apple-appdev-hook-postflight", isDirectory: true)
+        .appendingPathComponent(identifier, isDirectory: true)
+    defer {
+        if fileManager.fileExists(atPath: stateRoot.path) {
+            try? fileManager.removeItem(at: stateRoot)
+        }
+    }
+    let environment = [
+        "HOME": NSHomeDirectory(),
+        "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+        "CODEX_HOME": xcodeCodexHome.path,
+        "PLUGIN_ROOT": canonicalProfile.path,
+        "APPLE_APPDEV_ROUTE_STATE_ROOT": stateRoot.path,
+        "LANG": "en_US.UTF-8",
+    ]
+    let routerResult = try runHookProcess(
+        executable: runtime,
+        script: router,
+        input: [
+            "hook_event_name": "UserPromptSubmit",
+            "prompt": "Build an iOS app. INSTALLER-HOOK-POSTFLIGHT",
+            "cwd": canonicalProfile.path,
+            "session_id": identifier,
+            "turn_id": "user-prompt-submit",
+        ],
+        environment: environment
+    )
+    let routerOutput = try hookJSONOutput(routerResult, label: "UserPromptSubmit")
+    let hookSpecificOutput = routerOutput["hookSpecificOutput"] as? [String: Any]
+    let additionalContext = hookSpecificOutput?["additionalContext"] as? String
+    guard routerOutput["continue"] as? Bool == true,
+          hookSpecificOutput?["hookEventName"] as? String == "UserPromptSubmit",
+          additionalContext?.contains("Routing: orchestrator-led") == true,
+          additionalContext?.contains("Selected owner: apple-appdev-workflow:apple-app-orchestrator") == true,
+          additionalContext?.contains("Top-level owner injection: applied") == true,
+          additionalContext?.contains("Reason: prompt-signal:ios") == true
+    else {
+        throw InstallerError(description: "UserPromptSubmit hook postflight returned the wrong route contract")
+    }
+    describe("hook postflight passed under sanitized PATH: UserPromptSubmit")
+
+    let stopResult = try runHookProcess(
+        executable: runtime,
+        script: guardScript,
+        input: [
+            "hook_event_name": "Stop",
+            "session_id": identifier,
+            "turn_id": "user-prompt-submit",
+            "stop_hook_active": false,
+            "last_assistant_message": "Installer postflight intentionally omits the Apple final-output contract.",
+        ],
+        environment: environment
+    )
+    let stopOutput = try hookJSONOutput(stopResult, label: "Stop")
+    guard stopOutput["decision"] as? String == "block",
+          (stopOutput["reason"] as? String)?.contains("Apple workflow final-output contract failed") == true
+    else {
+        throw InstallerError(description: "Stop hook postflight did not enforce one correction")
+    }
+    describe("hook postflight passed under sanitized PATH: Stop")
+
+    let retryResult = try runHookProcess(
+        executable: runtime,
+        script: guardScript,
+        input: [
+            "hook_event_name": "Stop",
+            "session_id": identifier,
+            "turn_id": "user-prompt-submit",
+            "stop_hook_active": true,
+            "last_assistant_message": "Installer postflight retry sentinel.",
+        ],
+        environment: environment
+    )
+    guard retryResult.status == 0,
+          retryResult.stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else {
+        throw InstallerError(description: "Stop hook postflight attempted more than one correction")
+    }
+    describe("hook postflight passed under sanitized PATH: Stop one-retry guard")
 }
 
 func uniquePath(_ path: URL) throws -> URL {
@@ -693,7 +934,7 @@ func installPluginProfile(
     dryRun: Bool
 ) throws -> URL? {
     let fileManager = FileManager.default
-    let identity = try validatePluginProfile(at: payload)
+    let identity = try validatePluginProfile(at: payload, requireSelfContainedHooks: true)
     let configURL = xcodeCodexHome.appendingPathComponent("config.toml")
     let previousProfilePresent = fileManager.fileExists(atPath: destination.path)
     let previousConfigPresent = fileManager.fileExists(atPath: configURL.path)
@@ -722,6 +963,7 @@ func installPluginProfile(
     describe("enable plugin: \(pluginIdentifier(source: source, pluginName: pluginName))")
     describe("disable conflicting \(pluginName) identities without removing their caches")
     if dryRun {
+        describe("dry-run: would postflight UserPromptSubmit and Stop under sanitized PATH")
         describe("dry-run: Xcode active Codex agent remains unchanged")
         return backup
     }
@@ -739,8 +981,10 @@ func installPluginProfile(
         _ = try validatePluginProfile(
             at: destination,
             expectedName: identity.name,
-            expectedVersion: identity.version
+            expectedVersion: identity.version,
+            requireSelfContainedHooks: true
         )
+        try postflightPluginHooks(at: destination, xcodeCodexHome: xcodeCodexHome)
         let existingConfig = previousConfigPresent
             ? try String(contentsOf: configURL, encoding: .utf8)
             : ""
@@ -992,7 +1236,8 @@ func installPackagedPluginProfile(options: Options) throws -> URL? {
     _ = try validatePluginProfile(
         at: payload,
         expectedName: pluginName,
-        expectedVersion: version
+        expectedVersion: version,
+        requireSelfContainedHooks: true
     )
     let destination = pluginCacheTarget(
         xcodeCodexHome: xcodeCodexHome,
@@ -1062,7 +1307,7 @@ func runInteractiveInstaller() -> Int32 {
         information: """
         Quit Xcode before continuing.
 
-        This installs and enables the xcode-headless plugin profile in Xcode's separate Codex home. It does not replace Xcode's Codex agent or pre-trust either lifecycle hook: UserPromptSubmit or Stop.
+        This installs and enables the xcode-headless plugin profile in Xcode's separate Codex home. The profile carries its own signed hook runtime, so it does not depend on Homebrew, Malt, or your shell PATH. It does not replace Xcode's Codex agent or pre-trust either lifecycle hook: UserPromptSubmit or Stop.
         """,
         style: .informational,
         primaryButton: "Install",
@@ -1080,7 +1325,7 @@ func runInteractiveInstaller() -> Int32 {
         let completion = presentAlert(
             message: "Installation complete",
             information: """
-            Apple AppDev Workflow is enabled for Xcode. Xcode's active Codex agent was not changed.
+            Apple AppDev Workflow is enabled for Xcode. Both lifecycle hooks passed an automatic sanitized-PATH postflight. Xcode's active Codex agent was not changed.
 
             Before opening Xcode, use stock Codex to review and trust each lifecycle hook: UserPromptSubmit and Stop.
 
