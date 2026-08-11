@@ -3,6 +3,12 @@
 This companion release is pinned to the following Marketplace plugin
 identity:
 
+The published `v0.2.0` facts below remain historical. The companion-only
+Xcode 27/Codex `0.145.0` maintenance candidate is tracked separately in
+[`XCODE_27_CODEX_0.145_MAINTENANCE_QUALIFICATION.md`](XCODE_27_CODEX_0.145_MAINTENANCE_QUALIFICATION.md);
+it keeps plugin version `0.2.0` while packaging the lifecycle-hook runtime
+inside the Xcode profile.
+
 ```text
 plugin: apple-appdev-workflow
 plugin version: 0.2.0

@@ -25,12 +25,28 @@ python3 scripts/render_plugin_manifest_profile.py \
   --validate
 ```
 
+Materialize the pinned official Node.js LTS runtime used only by the two
+plugin hooks. This does not install Node globally or change `PATH`:
+
+```bash
+tools/xcode-headless-installer/scripts/fetch_hook_runtime.sh \
+  --output-dir /tmp/apple-appdev-hook-runtime-v24.19.0
+```
+
+The fetcher pins the Node version, official archive URL, architecture-specific
+archive SHA-256, extracted executable SHA-256, and license SHA-256 in
+`provenance.json`. The packager rejects symlinks and runtimes with non-system
+dynamic-library dependencies.
+
 Inspect the package plan without creating an app or DMG:
 
 ```bash
 tools/xcode-headless-installer/scripts/package_dmg.sh \
   --plugin-profile /tmp/apple-appdev-xcode-headless-0.2.0 \
   --plugin-version 0.2.0 \
+  --version 0.2.1 \
+  --hook-runtime /tmp/apple-appdev-hook-runtime-v24.19.0/node \
+  --hook-runtime-license /tmp/apple-appdev-hook-runtime-v24.19.0/LICENSE \
   --output-dir /tmp/apple-appdev-xcode-plugin-installer \
   --dry-run
 ```
@@ -43,16 +59,22 @@ APPLE_APPDEV_WORKFLOW_CODESIGN_IDENTITY="Developer ID Application: Example Team 
 tools/xcode-headless-installer/scripts/package_dmg.sh \
   --plugin-profile /tmp/apple-appdev-xcode-headless-0.2.0 \
   --plugin-version 0.2.0 \
+  --version 0.2.1 \
+  --hook-runtime /tmp/apple-appdev-hook-runtime-v24.19.0/node \
+  --hook-runtime-license /tmp/apple-appdev-hook-runtime-v24.19.0/LICENSE \
   --output-dir /tmp/apple-appdev-xcode-plugin-installer \
   --release \
   --notarize \
   --keychain-profile AppleAppsBrigade
 ```
 
-`--notarize` is rejected unless `--release` is present. A successful package
-run emits a sidecar JSON manifest with the final DMG SHA-256, installer-binary
+`--version` is the companion app and DMG version; `--plugin-version` remains
+the embedded workflow version. `--notarize` is rejected unless `--release` is
+present. A successful package run emits a sidecar JSON manifest with the final
+DMG SHA-256, installer-binary
 SHA-256, exact source commit, clean/dirty state, signing mode, notarization
-status, plugin manifest hash, and routing core hash. Developer ID release
+status, plugin manifest hash, source and embedded routing-core hashes, and
+source/final hook-runtime hashes. Developer ID release
 packaging refuses a dirty or non-git source checkout. A notarized run also
 keeps notarytool's JSON result beside the DMG and records its accepted
 submission ID in the sidecar manifest.
@@ -61,8 +83,16 @@ submission ID in the sidecar manifest.
 
 Open the DMG and quit Xcode. Then double-click
 `AppleAppDevXcodeHeadlessInstaller.app`, review the native confirmation, and
-click **Install**. The completion dialog confirms that Xcode's active Codex
-agent was not changed and provides a copyable rollback path.
+click **Install**. Before the plugin is enabled, the installer runs both
+`UserPromptSubmit` and `Stop` through the packaged runtime with
+`PATH=/usr/bin:/bin:/usr/sbin:/sbin`. A failed postflight triggers the existing
+transactional profile-and-config rollback. The completion dialog confirms that
+both postflights passed, Xcode's active Codex agent was not changed, and a
+copyable rollback path is available. Click **Review Hooks** to open the exact
+Xcode-shipped stock Codex binary as Terminal's foreground job with Xcode's
+separate Codex home. If stock Codex asks for directory trust first, the path is
+the dedicated empty `.tmp/hook-trust-onboarding/workspace` under that home—not
+the user's home or an application project.
 
 For terminal automation, change into the mounted DMG directory and invoke the
 same signed app executable explicitly:
@@ -100,7 +130,9 @@ Restore accepts only a validated transaction backup inside that quarantine
 root. It preserves the profile and config being replaced as a second rollback
 backup. Both install and restore strip copied extended attributes and validate
 the final manifest, both lifecycle hooks, neutral policy, and owner-kernel
-shape.
+shape. New self-contained packages additionally require an executable
+`hooks/runtime/node`, its distributed `LICENSE`, and the exact two packaged
+runtime commands.
 
 Plugin-profile operations never write under Xcode's `Agents` directory and
 never change `Agents/XcodeVersions/<build>/codex`.
@@ -111,8 +143,18 @@ The installer enables the plugin profile but deliberately does not pre-trust
 its lifecycle hooks. Trust is a separate, explicit user action because hook
 commands run outside the Codex sandbox.
 
+The native completion dialog makes **Review Hooks** the primary next action.
+It creates a one-use Terminal launcher for the installer's
+`--review-plugin-hooks` mode; that mode resolves the active Xcode build, runs
+the exact Xcode-shipped Codex binary with Xcode's CodingAssistant `CODEX_HOME`,
+keeps it in Terminal's foreground process group, and deletes the launcher when
+the terminal session exits. Stock Codex may ask once to trust the dedicated
+empty `.tmp/hook-trust-onboarding/workspace`; accepting that prompt does not
+trust the user's home or application projects. The installer does not calculate
+trust hashes or write `hooks.state`.
+
 With Xcode still closed, launch the stock Codex TUI from the Xcode
-CodingAssistant home:
+CodingAssistant home manually if the native handoff is unavailable:
 
 ```bash
 XCODE_BUILD="$(xcodebuild -version | awk '/Build version/{print $3}')"
@@ -127,30 +169,35 @@ new or changed hook from `apple-appdev-workflow@apple-developer-tools`.
 `UserPromptSubmit` injects the deterministic top-level owner; `Stop` validates
 the top-level owner's final output contract and can request one correction
 pass without looping. If the startup review has already been dismissed, enter
-`/hooks` to open the same browser. For the qualified dual-hook version `0.2.0`,
-the routing definition is:
-
-```text
-command: node "$PLUGIN_ROOT/hooks/apple_router.mjs"
-hash: sha256:1c82a273ee2e6d13245f8ade4bff516ecb8d46b623c96c22e4e572a8edb87711
-```
-
-The routing definition did not change, so an upgraded home may already trust
-it. The new final-contract guard is:
-
-```text
-command: node "$PLUGIN_ROOT/hooks/apple_contract_guard.mjs"
-hash: sha256:0ed272c8c1d1eb54f0342f83d3cb690a70448b72397b3fd1c53ffd191cc6bc78
-```
-
-On a clean home, review both. On an upgraded home, stock Codex may present only
-`Stop` as new. Do not approve a different command, source identity, or hash
-without reviewing the changed package. Quit the TUI after approval, start
-Xcode, create a fresh Codex conversation, and confirm the first broad
+`/hooks` to open the same browser. Do not approve a different command, source
+identity, or hash without reviewing the changed package. Quit the TUI after
+approval, start Xcode, create a fresh Codex conversation, and confirm the first broad
 Apple-development prompt produces the expected orchestrator-led route. The
 `Stop` guard intentionally applies only when
 `apple-appdev-workflow:apple-app-orchestrator` is the selected owner; focused
 explicit specialists retain their own output contracts.
+
+The historical public `0.2.0` DMG used bare `node` commands and the trust
+hashes recorded below:
+
+```text
+UserPromptSubmit: node "$PLUGIN_ROOT/hooks/apple_router.mjs"
+sha256:1c82a273ee2e6d13245f8ade4bff516ecb8d46b623c96c22e4e572a8edb87711
+
+Stop: node "$PLUGIN_ROOT/hooks/apple_contract_guard.mjs"
+sha256:0ed272c8c1d1eb54f0342f83d3cb690a70448b72397b3fd1c53ffd191cc6bc78
+```
+
+Self-contained maintenance packages deliberately replace those definitions:
+
+```text
+UserPromptSubmit: "$PLUGIN_ROOT/hooks/runtime/node" "$PLUGIN_ROOT/hooks/apple_router.mjs"
+Stop: "$PLUGIN_ROOT/hooks/runtime/node" "$PLUGIN_ROOT/hooks/apple_contract_guard.mjs"
+```
+
+Both will therefore require explicit review again. Record the final trust
+hashes from the exact signed/notarized candidate; do not carry the historical
+hashes forward.
 
 ## Optional Primary-Agent Canary
 
@@ -190,3 +237,8 @@ and only then signs the installer app.
 - The `xcode-headless` manifest must omit plugin-managed `mcpServers` and retired
   `routerSelection`; Xcode owns the native tool surface while the hook retains
   deterministic workflow ownership.
+- For Xcode 27 with Codex CLI `0.145.0` or newer, qualification contract v2
+  expects the neutral authored host-context case to route by the exact
+  `workspace-extension:xcworkspace` reason. The top-level owner and injection
+  checks remain exact; the older contract that expected Xcode project prose in
+  the hook prompt remains available only for historical hosts.

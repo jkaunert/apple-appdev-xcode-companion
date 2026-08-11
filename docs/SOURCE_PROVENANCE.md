@@ -53,6 +53,22 @@ on macOS 15.7.8.
 Exact artifact hashes, manual UI evidence, and host evidence are recorded in
 `docs/qualification/dual-hook-0.2.0-20260730.json`.
 
+## Xcode 27 maintenance boundary
+
+The Xcode 27/Codex `0.145.0` maintenance work is companion-native. It does not
+change the rendered plugin source files. At package time the companion copies
+the same validated private `xcode-headless` render, adds a pinned official
+Node.js LTS executable plus its license under `hooks/runtime`, and rewrites
+only the two commands in the embedded copy of `hooks/hooks.json` to use that
+plugin-relative runtime. The package sidecar records both the unmodified source
+routing-core hash and the transformed embedded routing-core hash.
+
+Node archive URL, archive SHA-256, extracted executable SHA-256, architecture,
+and license SHA-256 are emitted by
+`tools/xcode-headless-installer/scripts/fetch_hook_runtime.sh`. This keeps the
+runtime acquisition reviewable without committing a third-party binary to the
+repository.
+
 ## Distribution boundary
 
 The corresponding public Marketplace release is:

@@ -29,6 +29,10 @@ CodingAssistant Codex home without changing Xcode's active Codex agent.
   [0.2.0 release packet](docs/RELEASE_PACKET_0.2.0.md)
 - the public plugin repository remains frozen during the Build Week judging
   window and is not modified by companion development
+- the next companion maintenance candidate keeps the public plugin payload at
+  `0.2.0` while embedding a pinned, licensed Node.js LTS runtime inside the
+  Xcode-only installed profile; Xcode 27/Codex `0.145.0` qualification is in
+  progress and does not change the frozen plugin repository
 
 See [source provenance](docs/SOURCE_PROVENANCE.md) for the exact extraction
 boundary and [compatibility contract](docs/COMPATIBILITY.md) for the pinned
@@ -36,10 +40,12 @@ plugin/profile pairing.
 
 ## Package shape
 
-The profile-only package contains:
+The self-contained maintenance package contains:
 
 - a Developer ID signed installer app
 - a rendered and validated `xcode-headless` plugin profile
+- a signed Node.js LTS executable and license used only by the two lifecycle
+  hooks
 - no replacement Codex agent
 - no bundled MCP proxy
 - no plugin-managed MCP servers
@@ -47,16 +53,22 @@ The profile-only package contains:
 The installer validates the embedded profile, refuses symbolic-link payloads,
 backs up the prior profile and Xcode Codex config, enables the public
 marketplace identity, disables conflicting identities without deleting their
-caches, presents a native double-click installation flow with a copyable
-validated restore path, and leaves
+caches, runs `UserPromptSubmit` and `Stop` under Xcode's sanitized `PATH`
+before config activation, presents a native double-click installation flow with
+a copyable validated restore path, offers a primary **Review Hooks** action
+that opens Xcode's stock Codex review as Terminal's foreground job inside a
+dedicated empty onboarding workspace, and leaves
 `Agents/XcodeVersions/<build>/codex` unchanged.
 
 Lifecycle-hook trust remains an explicit user decision. The installer does not
 pre-trust the embedded `UserPromptSubmit` routing hook or `Stop` contract
-guard. On a clean Xcode Codex home, review and trust both. On an upgraded home,
-the unchanged `UserPromptSubmit` command may retain its prior trust while the
-new `Stop` command still requires review. The exact procedure is documented in
-the [installer guide](tools/xcode-headless-installer/README.md#review-and-trust-the-hooks).
+guard. The self-contained commands differ from public companion `v0.2.0`, so
+both require explicit review after the maintenance install. The installer
+launches the stock review surface but never writes `hooks.state`; command and
+source approval remains the user's decision. A one-time workspace-trust prompt,
+when needed, applies only to that onboarding directory rather than the user's
+home or project directories. The exact procedure is documented in the
+[installer guide](tools/xcode-headless-installer/README.md#review-and-trust-the-hooks).
 
 ## Development
 
@@ -69,9 +81,14 @@ python3 -m unittest scripts.test_xcode_headless_installer
 Inspect a package plan with a rendered profile:
 
 ```bash
+tools/xcode-headless-installer/scripts/fetch_hook_runtime.sh \
+  --output-dir /tmp/apple-appdev-hook-runtime-v24.19.0
+
 tools/xcode-headless-installer/scripts/package_dmg.sh \
   --plugin-profile /path/to/rendered/xcode-headless \
   --plugin-version 0.2.0 \
+  --hook-runtime /tmp/apple-appdev-hook-runtime-v24.19.0/node \
+  --hook-runtime-license /tmp/apple-appdev-hook-runtime-v24.19.0/LICENSE \
   --output-dir /tmp/apple-appdev-xcode-companion \
   --dry-run
 ```
