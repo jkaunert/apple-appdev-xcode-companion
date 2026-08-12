@@ -23,7 +23,36 @@ The extracted installer tree is byte-identical to the tree used by the earlier
 0.2.0 package-qualification commit
 `952f2a5761c4beaad835b6b8ec34ae53136e44b0`.
 
-## Current build-4 qualification
+## Local 0.2.1 build-2 candidate
+
+The unpublished build-2 candidate embeds the validated `xcode-headless`
+profile rendered from private Apple AppDev Workflow topic commit:
+
+```text
+c597d1e289a1afe2d28469f43e07ae65261a95a7
+```
+
+That source descends from private `main` at
+`d7d6192f93a63dd45af5c6be9f349bdb3a069a38`. The render has plugin version
+`0.2.1`, qualification contract v3 behavior, no plugin-managed MCP servers,
+and these candidate hashes:
+
+```text
+.codex-plugin/plugin.json: 2efee00591f2ef0c69d585f9d0447af7f082f416d57570ac1e4635283f4dd254
+hooks/hooks.json: 0451510d0746ff745b246cb41d57fd99faa74153e13486a3af8320d6de10793e
+hooks/apple_router.mjs: 8195ca4054b68d9b8815acd38b85cee6a6af7c809fc2e974ba1448255dc657c2
+hooks/apple_contract_guard.mjs: 895cef34b9c45ca0ae5557fccde5693854def4d33734acd621494e5090dadfe8
+routing/router-policy.json: ba806e008b86c9d1d7e24fb94a4c671f945dfb5daf5a29bd101fc5784e3c40d3
+routing/top-level-owner-kernel.md: 2d00c2577be2174de4aa9b30c7a8f3380e8ded50455dc3d030604d67f7a45949
+source routing core: 39cba2b3cb2a2e15b561cd94cdfa5fabef465d6c10ad4b0819bbcdbf17a4bfa6
+```
+
+The local public Marketplace payload commit is
+`506affbe79e8aee0a5cec6e170b6699ea976207a`; its local provenance follow-up
+is `9e991296ed15e29630092fc69221b4fcba124159`. Neither repository has been
+pushed from this release train.
+
+## Published 0.2.0 build-4 qualification
 
 The current signed and notarized DMG was built from clean companion commit:
 
@@ -53,15 +82,15 @@ on macOS 15.7.8.
 Exact artifact hashes, manual UI evidence, and host evidence are recorded in
 `docs/qualification/dual-hook-0.2.0-20260730.json`.
 
-## Xcode 27 maintenance boundary
+## Self-contained hook-runtime transformation
 
-The Xcode 27/Codex `0.145.0` maintenance work is companion-native. It does not
-change the rendered plugin source files. At package time the companion copies
-the same validated private `xcode-headless` render, adds a pinned official
-Node.js LTS executable plus its license under `hooks/runtime`, and rewrites
-only the two commands in the embedded copy of `hooks/hooks.json` to use that
-plugin-relative runtime. The package sidecar records both the unmodified source
-routing-core hash and the transformed embedded routing-core hash.
+The Xcode 27/Codex `0.145.0` packaging work is companion-native. At package
+time the companion copies the validated private `xcode-headless` render, adds
+a pinned official Node.js LTS executable plus its license under
+`hooks/runtime`, and rewrites only the two commands in the embedded copy of
+`hooks/hooks.json` to use that plugin-relative runtime. The package sidecar
+records both the unmodified source routing-core hash and the transformed
+embedded routing-core hash.
 
 Node archive URL, archive SHA-256, extracted executable SHA-256, architecture,
 and license SHA-256 are emitted by

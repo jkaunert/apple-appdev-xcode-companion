@@ -20,7 +20,7 @@ DISPLAY_NAME="Apple AppDev Xcode Headless Installer"
 APP_EXECUTABLE="xcode-headless-installer"
 APP_ICON_NAME="AppleAppDevXcodeHeadlessInstaller.icns"
 APP_VERSION=""
-APP_BUILD="1"
+APP_BUILD="2"
 MIN_SYSTEM_VERSION="15.0"
 VOLUME_NAME="Apple AppDev Xcode Headless Installer"
 RELEASE_MODE=0
@@ -53,7 +53,7 @@ Package options:
   --output-dmg PATH         Output DMG path. Defaults under output-dir.
   --bundle-id ID            Installer app bundle id.
   --version VERSION         Installer app version. Defaults to plugin version or 0.1.0.
-  --build BUILD             Installer app build. Defaults to 1.
+  --build BUILD             Installer app build. Defaults to 2.
   --min-system VERSION      Compile target and LSMinimumSystemVersion. Defaults to 15.0.
   --sign IDENTITY           Developer ID Application signing identity.
   --release                 Require Developer ID signing and hardened runtime.
@@ -465,6 +465,8 @@ echo "Xcode-headless installer package plan"
 echo "  repo_root: $REPO_ROOT"
 echo "  source_commit: $SOURCE_COMMIT"
 echo "  source_dirty: $SOURCE_DIRTY"
+echo "  app_version: $APP_VERSION"
+echo "  app_build: $APP_BUILD"
 if [[ -n "$PLUGIN_PROFILE" ]]; then
   echo "  plugin_profile: $PLUGIN_PROFILE"
   echo "  plugin_name: $PLUGIN_NAME"

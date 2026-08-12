@@ -1,28 +1,51 @@
 # Xcode 27 / Codex 0.145 Maintenance Qualification
 
 This document tracks the companion-only maintenance candidate prompted by the
-Xcode 27 Beta 5 host change. It does not modify the frozen public
-`jkaunert/apple-appdev-workflow` repository or change the paired plugin version
-from `0.2.0`.
+Xcode 27 Beta 5 host change. Local source, packaging, installation, and
+qualification work may continue during judging, but no branch, pull request,
+tag, release, or asset may be pushed or published until the remote freeze is
+explicitly lifted.
 
 ## Candidate contract
 
 - companion app version: `0.2.1`
+- companion app build: `2`
 - embedded plugin identity: `apple-appdev-workflow@apple-developer-tools`
-- embedded plugin version: `0.2.0`
+- embedded plugin version: `0.2.1`
+- embedded plugin source:
+  `c597d1e289a1afe2d28469f43e07ae65261a95a7`
 - Xcode host: Xcode 27 Beta 5, build `27A5237l`
 - stock Xcode Codex: `codex-cli 0.145.0`
-- qualification contract: `2`
+- qualification contract: `3`
 - hook runtime: pinned official Node.js LTS `v24.19.0`
 - hook commands:
   - `"$PLUGIN_ROOT/hooks/runtime/node" "$PLUGIN_ROOT/hooks/apple_router.mjs"`
   - `"$PLUGIN_ROOT/hooks/runtime/node" "$PLUGIN_ROOT/hooks/apple_contract_guard.mjs"`
 
-Contract version 2 preserves exact `orchestrator-led` routing, exact
+Contract version 3 preserves exact `orchestrator-led` routing, exact
 `apple-appdev-workflow:apple-app-orchestrator` ownership, and exact `applied`
-injection. For the neutral Xcode host-context case it expects the exact reason
-`workspace-extension:xcworkspace`; Codex `0.145.0` no longer includes Xcode's
-project-structure prose in the `UserPromptSubmit` prompt on this host.
+injection. It retains all nine contract-v2 Xcode cases, including the exact
+neutral reason `workspace-extension:xcworkspace`, and adds natural-language
+macOS and Swift Package cases requiring exact authored-prompt reasons
+`prompt-signal:macos` and `prompt-signal:swift package`.
+
+## Build-2 local source candidate
+
+The exact validated source render has no symlinks and contains plugin version
+`0.2.1`. Its source routing-core SHA-256 is
+`39cba2b3cb2a2e15b561cd94cdfa5fabef465d6c10ad4b0819bbcdbf17a4bfa6`.
+The component hashes are recorded in
+[`SOURCE_PROVENANCE.md`](SOURCE_PROVENANCE.md).
+
+The package dry-run passed with application version `0.2.1`, application build
+`2`, the exact plugin manifest SHA-256
+`2efee00591f2ef0c69d585f9d0447af7f082f416d57570ac1e4635283f4dd254`,
+official Node.js `v24.19.0` SHA-256
+`27db838bb204ef7c21df2931f5656e4c8fb32e6e947f363a402b49714d32b5b1`,
+and Node license SHA-256
+`148eacf7863ef4329224a29398623077200a27194aa075569faf4a0a85566ca5`.
+Signed/notarized artifact evidence, explicit trust, and live contract-v3 host
+evidence remain pending.
 
 ## Implemented distribution gates
 
@@ -50,7 +73,7 @@ project-structure prose in the `UserPromptSubmit` prompt on this host.
 - the review handoff preserves stock ownership of command/source inspection and
   trust persistence; the installer never writes `hooks.state`
 
-## Development evidence
+## Historical build-1 development evidence
 
 The first ad-hoc development package completed from dirty companion source to
 prove package mechanics only. It is not a release candidate and is not public
@@ -72,7 +95,7 @@ distribution evidence.
 - package-time sanitized-PATH postflight: `UserPromptSubmit` pass, `Stop`
   correction pass, `Stop` one-retry guard pass
 
-## Final trust-onboarding candidate evidence
+## Historical build-1 trust-onboarding evidence
 
 The exact clean companion commit under qualification is
 `bfd17f6a72055090a7bdb7acab3280ca4f2193a9`. Live validation of earlier
@@ -168,9 +191,9 @@ asset remains a separate release operation.
    manifest.
 5. Quit Xcode and install the exact DMG, preserving the printed rollback path.
 6. Explicitly review and trust both changed hook definitions.
-7. Restart Xcode and run the fresh routing smoke, the 9-case Xcode matrix, the
+7. Restart Xcode and run the fresh routing smoke, the 11-case Xcode matrix, the
    12-case stock Desktop prerequisite, and the Stop one-retry correction.
-8. Record final artifact hashes, trust hashes, session IDs, and the v2 scorer
+8. Record final artifact hashes, trust hashes, session IDs, and the v3 scorer
    report before publishing a companion maintenance release.
 
 Until all eight steps are green, status remains `no-go` for public release.

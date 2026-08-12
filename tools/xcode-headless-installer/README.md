@@ -20,7 +20,7 @@ Render and validate the Xcode-specific profile first:
 ```bash
 python3 scripts/render_plugin_manifest_profile.py \
   --repo-root . \
-  --output-dir /tmp/apple-appdev-xcode-headless-0.2.0 \
+  --output-dir /tmp/apple-appdev-xcode-headless-0.2.1 \
   --profile xcode-headless \
   --validate
 ```
@@ -42,9 +42,10 @@ Inspect the package plan without creating an app or DMG:
 
 ```bash
 tools/xcode-headless-installer/scripts/package_dmg.sh \
-  --plugin-profile /tmp/apple-appdev-xcode-headless-0.2.0 \
-  --plugin-version 0.2.0 \
+  --plugin-profile /tmp/apple-appdev-xcode-headless-0.2.1 \
+  --plugin-version 0.2.1 \
   --version 0.2.1 \
+  --build 2 \
   --hook-runtime /tmp/apple-appdev-hook-runtime-v24.19.0/node \
   --hook-runtime-license /tmp/apple-appdev-hook-runtime-v24.19.0/LICENSE \
   --output-dir /tmp/apple-appdev-xcode-plugin-installer \
@@ -57,9 +58,10 @@ the same package run:
 ```bash
 APPLE_APPDEV_WORKFLOW_CODESIGN_IDENTITY="Developer ID Application: Example Team (TEAMID1234)" \
 tools/xcode-headless-installer/scripts/package_dmg.sh \
-  --plugin-profile /tmp/apple-appdev-xcode-headless-0.2.0 \
-  --plugin-version 0.2.0 \
+  --plugin-profile /tmp/apple-appdev-xcode-headless-0.2.1 \
+  --plugin-version 0.2.1 \
   --version 0.2.1 \
+  --build 2 \
   --hook-runtime /tmp/apple-appdev-hook-runtime-v24.19.0/node \
   --hook-runtime-license /tmp/apple-appdev-hook-runtime-v24.19.0/LICENSE \
   --output-dir /tmp/apple-appdev-xcode-plugin-installer \
@@ -227,8 +229,8 @@ and only then signs the installer app.
   distributable.
 - Public Xcode distribution requires Developer ID signing, notarization,
   stapling, and Gatekeeper acceptance of the exact final DMG.
-- The 9/9 live Xcode hook matrix is host-compatibility evidence. It is not
-  Desktop, Marketplace, or public Marketplace release evidence.
+- The 11/11 contract-v3 live Xcode hook matrix is host-compatibility evidence.
+  It is not Desktop, Marketplace, or public Marketplace release evidence.
 - Installing the profile does not prove a restarted Xcode host loaded it. Run a
   fresh Xcode CodingAssistant smoke after install before claiming that exact
   package is host-validated.
@@ -237,8 +239,9 @@ and only then signs the installer app.
 - The `xcode-headless` manifest must omit plugin-managed `mcpServers` and retired
   `routerSelection`; Xcode owns the native tool surface while the hook retains
   deterministic workflow ownership.
-- For Xcode 27 with Codex CLI `0.145.0` or newer, qualification contract v2
-  expects the neutral authored host-context case to route by the exact
-  `workspace-extension:xcworkspace` reason. The top-level owner and injection
-  checks remain exact; the older contract that expected Xcode project prose in
-  the hook prompt remains available only for historical hosts.
+- For Xcode 27 with Codex CLI `0.145.0` or newer, qualification contract v3
+  preserves v2's exact neutral `workspace-extension:xcworkspace` reason and
+  adds exact authored-prompt provenance for natural macOS and Swift Package
+  cases. The top-level owner and injection checks remain exact; the older
+  contract that expected Xcode project prose in the hook prompt remains
+  available only for historical hosts.

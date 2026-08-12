@@ -29,10 +29,14 @@ CodingAssistant Codex home without changing Xcode's active Codex agent.
   [0.2.0 release packet](docs/RELEASE_PACKET_0.2.0.md)
 - the public plugin repository remains frozen during the Build Week judging
   window and is not modified by companion development
-- the next companion maintenance candidate keeps the public plugin payload at
-  `0.2.0` while embedding a pinned, licensed Node.js LTS runtime inside the
-  Xcode-only installed profile; Xcode 27/Codex `0.145.0` qualification is in
-  progress and does not change the frozen plugin repository
+- the local build-2 companion maintenance candidate keeps application version
+  `0.2.1` and embeds plugin profile `0.2.1`, rendered from private source
+  `c597d1e289a1afe2d28469f43e07ae65261a95a7`; it adds authored Swift Package
+  routing under qualification contract v3 while retaining the neutral Xcode
+  workspace fallback
+- the candidate remains local during the judging freeze: no companion or
+  plugin branch, pull request, tag, release, or asset has been pushed or
+  published from this release train
 
 See [source provenance](docs/SOURCE_PROVENANCE.md) for the exact extraction
 boundary and [compatibility contract](docs/COMPATIBILITY.md) for the pinned
@@ -86,7 +90,9 @@ tools/xcode-headless-installer/scripts/fetch_hook_runtime.sh \
 
 tools/xcode-headless-installer/scripts/package_dmg.sh \
   --plugin-profile /path/to/rendered/xcode-headless \
-  --plugin-version 0.2.0 \
+  --plugin-version 0.2.1 \
+  --version 0.2.1 \
+  --build 2 \
   --hook-runtime /tmp/apple-appdev-hook-runtime-v24.19.0/node \
   --hook-runtime-license /tmp/apple-appdev-hook-runtime-v24.19.0/LICENSE \
   --output-dir /tmp/apple-appdev-xcode-companion \
