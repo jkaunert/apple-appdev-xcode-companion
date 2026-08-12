@@ -33,7 +33,8 @@ CodingAssistant Codex home without changing Xcode's active Codex agent.
   `0.2.1` and embeds plugin profile `0.2.1`, rendered from private source
   `835435901c5ac46d5d45176e16d8c2e0f568d886`; it adds authored Swift Package
   routing under qualification contract v3, ranks that specific domain above
-  generic `xcode`, and retains the neutral Xcode workspace fallback
+  generic `xcode`, and retains the neutral Xcode workspace fallback; the exact
+  notarized build passed explicit hook review and all 11 Xcode Beta 5 cases
 - the candidate remains local during the judging freeze: no companion or
   plugin branch, pull request, tag, release, or asset has been pushed or
   published from this release train

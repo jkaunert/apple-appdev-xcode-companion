@@ -16,7 +16,8 @@ companion app build: 3
 Its profile preserves deterministic top-level ownership, adds authored macOS
 and Swift Package prompt provenance, and retains
 `workspace-extension:xcworkspace` only for the neutral Xcode host-context
-case. The exact source hashes and pending live gates are tracked in
+case. The notarized build-3 artifact, explicit hook review, and 11-case live
+Xcode qualification are green locally; the exact hashes and evidence are in
 [`XCODE_27_CODEX_0.145_MAINTENANCE_QUALIFICATION.md`](XCODE_27_CODEX_0.145_MAINTENANCE_QUALIFICATION.md).
 Nothing in this candidate has been pushed or published during the judging
 freeze.

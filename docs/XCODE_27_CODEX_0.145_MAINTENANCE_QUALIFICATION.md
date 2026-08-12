@@ -38,14 +38,93 @@ The component hashes are recorded in
 [`SOURCE_PROVENANCE.md`](SOURCE_PROVENANCE.md).
 
 The package dry-run passed with application version `0.2.1`, application build
-`2`, the exact plugin manifest SHA-256
+`3`, the exact plugin manifest SHA-256
 `2efee00591f2ef0c69d585f9d0447af7f082f416d57570ac1e4635283f4dd254`,
 official Node.js `v24.19.0` SHA-256
 `27db838bb204ef7c21df2931f5656e4c8fb32e6e947f363a402b49714d32b5b1`,
 and Node license SHA-256
 `148eacf7863ef4329224a29398623077200a27194aa075569faf4a0a85566ca5`.
-Signed/notarized artifact evidence, explicit trust, and live contract-v3 host
-evidence remain pending.
+
+## Build-3 signed and notarized artifact
+
+The final local artifact was built from clean companion commit
+`d6688435df3f63ebea68a8d6ed2d289c19975c75`. It passed strict signature,
+stapling, Gatekeeper-open, mounted-app Gatekeeper, and source-profile parity
+checks.
+
+```text
+DMG: AppleAppDevXcodeHeadlessInstaller-0.2.1.dmg
+DMG SHA-256: 26dfb852f8bfd1c8f078eda0bddc17eeefa0cbeb2a79513fc794be445778b0a5
+sidecar SHA-256: 2988865b4325941d0d2bb6fd6fcc544ee1e39f0b35c0bdfcace693c4a0885356
+notary JSON SHA-256: 08dfaccca06fd17bd785a07aad49364cb233e53a3e83271cdd2583e4a236c000
+notary submission: c06f82e2-2825-4f2d-a77e-2c2243cbdf4a
+notary status: Accepted
+embedded routing core: 33bf6748df912a31b99a8f6d9547996343b86247922d031cae22b08e171da760
+signed hook runtime: 5d5f6e28b7b8238637681f8026f680aebd57152eb288e706d975ffdbf0033485
+```
+
+## Build-3 installation and hook review
+
+The exact DMG completed the native installation with Xcode closed and
+VoiceOver enabled. The installer replaced the prior profile only after
+creating this rollback snapshot:
+
+```text
+/Users/joshuakaunert/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.1-plugin-install-20260812T103502Z
+```
+
+`Review Hooks` opened the Xcode-shipped `codex-cli 0.145.0`. Stock Codex showed
+one active `UserPromptSubmit` hook and one active `Stop` hook under
+`apple-appdev-workflow@apple-developer-tools`; both remained trusted through
+the stock review surface:
+
+```text
+UserPromptSubmit trust hash: sha256:bb883231a497676fe6ab677af02eada9a794fec2851562fe452c2c774c4aff10
+Stop trust hash: sha256:7f26b5d44d66ae59d13d78aad2a3d150c1cc9b12c4d584da2fcc6eef725783e4
+installed manifest: 2efee00591f2ef0c69d585f9d0447af7f082f416d57570ac1e4635283f4dd254
+installed hooks.json: f615cf9f0e8645d8830665929044c6756c25dab80560b70f6dd2ec5568cceea2
+installed routing core: 33bf6748df912a31b99a8f6d9547996343b86247922d031cae22b08e171da760
+installed hook runtime: 5d5f6e28b7b8238637681f8026f680aebd57152eb288e706d975ffdbf0033485
+```
+
+The installer and review agent exited normally, the rollback path remained on
+the clipboard, and VoiceOver was restored to off.
+
+## Contract-v3 live Xcode evidence
+
+The canonical Xcode 27 Beta 5 matrix passed all 11 cases against the installed
+build-3 profile while retaining the green 12-case stock Desktop prerequisite.
+The two new natural-language turns share stock Xcode session
+`019ff591-f0f2-7343-b037-4c821eb74b80` and persisted conversation
+`5AE9BD1C-5B2F-4548-9CA6-EDE9DE13F6FD`:
+
+```text
+macos-natural: orchestrator-led / apple-appdev-workflow:apple-app-orchestrator / applied / prompt-signal:macos
+swift-package-natural: orchestrator-led / apple-appdev-workflow:apple-app-orchestrator / applied / prompt-signal:swift package
+```
+
+The scorer attributed the accepted turns to Xcode PID `19425` and its
+Xcode-shipped Codex app-server, rejected carry-backed attribution, and reported
+`xcodeGate=passed` with no errors.
+
+```text
+manifest: /Users/joshuakaunert/.codex-fork/quarantine/v021-swift-package-provenance-20260812/xcode-v3-live-build3/xcode-parity-manifest-27A5237l-v3-build3.json
+manifest SHA-256: b3f78a62133f04d763b988c7955ca7d7d52ce6d7f2a606c5de1f851da5dab410
+report: /Users/joshuakaunert/.codex-fork/quarantine/v021-swift-package-provenance-20260812/xcode-v3-live-build3/xcode-parity-report-27A5237l-v3-build3.json
+report SHA-256: ebc8ea77421adfc7703522a72dffc879dc186c883caae9331a5806116de8bcf0
+```
+
+Selected build-3 screenshot SHA-256 evidence:
+
+```text
+confirmation with VoiceOver: 68a8b157b2f16a3d62b77e2c775860bb6510714dd83670c907d273a528cc6322
+completion with Review Hooks: 6dcce48908d2160ce6a4bc986d6069b115ed8ebed7ce38bb7a1c2531185d8f34
+hooks list: 1091db6dc3e81a0dc333a9e161b3ff175ee855943f4e02c581c3a93d0cd062d6
+UserPromptSubmit trusted: 0b49e81e9e721a5bfc9fd727cb13a03912a34eb0fb7acc968f065fb4575b99c7
+Stop trusted: 4f7d1de91205a1d476f7673ca86cd8dd0f7e78257044ae97d3a54c16375a1a70
+macOS natural-language result: 9ae77d0daf040e20853234ced684b014e9537aee9ba888426624fcbe9415cb36
+Swift Package natural-language result: 069fb8d39934042f6ed12d881ac918f3daa27a228e2d97d8a5bc0576eca05240
+```
 
 ## Implemented distribution gates
 
@@ -180,7 +259,7 @@ compilation, shell syntax validation, and a clean branch-diff review. This is
 green for companion branch promotion. Publishing a `0.2.1` GitHub release and
 asset remains a separate release operation.
 
-## Required release sequence
+## Release sequence status
 
 1. Complete focused tests, warnings-as-errors Swift compilation, shell syntax,
    JSON validation, and branch-diff review.
@@ -196,4 +275,7 @@ asset remains a separate release operation.
 8. Record final artifact hashes, trust hashes, session IDs, and the v3 scorer
    report before publishing a companion maintenance release.
 
-Until all eight steps are green, status remains `no-go` for public release.
+All eight technical steps are green locally. The candidate is ready only for
+post-freeze branch promotion and release publication; it remains a public
+release `no-go` until the judging freeze is explicitly lifted and the remote
+state is rechecked.

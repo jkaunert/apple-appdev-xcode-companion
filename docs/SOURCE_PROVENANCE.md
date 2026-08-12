@@ -52,6 +52,18 @@ The local public Marketplace payload commit is
 is `0d6deaf9057e0d76149856aa3e641bb331aef07a`. Neither repository has been
 pushed from this release train.
 
+The signed and notarized companion artifact was built from clean companion
+commit `d6688435df3f63ebea68a8d6ed2d289c19975c75`. Its DMG SHA-256 is
+`26dfb852f8bfd1c8f078eda0bddc17eeefa0cbeb2a79513fc794be445778b0a5`,
+its sidecar SHA-256 is
+`2988865b4325941d0d2bb6fd6fcc544ee1e39f0b35c0bdfcace693c4a0885356`,
+and Apple accepted notarization submission
+`c06f82e2-2825-4f2d-a77e-2c2243cbdf4a`. The installed Xcode profile matched
+the sidecar routing core
+`33bf6748df912a31b99a8f6d9547996343b86247922d031cae22b08e171da760`.
+The canonical contract-v3 report passed all 11 Xcode cases; its SHA-256 is
+`ebc8ea77421adfc7703522a72dffc879dc186c883caae9331a5806116de8bcf0`.
+
 ## Published 0.2.0 build-4 qualification
 
 The current signed and notarized DMG was built from clean companion commit:
