@@ -1,16 +1,16 @@
 # Compatibility Contract
 
-The local, unpublished companion `0.2.1` build-2 candidate is pinned to this
+The local, unpublished companion `0.2.1` build-3 candidate is pinned to this
 Xcode profile identity:
 
 ```text
 plugin: apple-appdev-workflow
 plugin version: 0.2.1
 marketplace source: apple-developer-tools
-private source commit: c597d1e289a1afe2d28469f43e07ae65261a95a7
+private source commit: 835435901c5ac46d5d45176e16d8c2e0f568d886
 qualification contract: 3
 companion app version: 0.2.1
-companion app build: 2
+companion app build: 3
 ```
 
 Its profile preserves deterministic top-level ownership, adds authored macOS

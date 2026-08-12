@@ -29,11 +29,11 @@ CodingAssistant Codex home without changing Xcode's active Codex agent.
   [0.2.0 release packet](docs/RELEASE_PACKET_0.2.0.md)
 - the public plugin repository remains frozen during the Build Week judging
   window and is not modified by companion development
-- the local build-2 companion maintenance candidate keeps application version
+- the local build-3 companion maintenance candidate keeps application version
   `0.2.1` and embeds plugin profile `0.2.1`, rendered from private source
-  `c597d1e289a1afe2d28469f43e07ae65261a95a7`; it adds authored Swift Package
-  routing under qualification contract v3 while retaining the neutral Xcode
-  workspace fallback
+  `835435901c5ac46d5d45176e16d8c2e0f568d886`; it adds authored Swift Package
+  routing under qualification contract v3, ranks that specific domain above
+  generic `xcode`, and retains the neutral Xcode workspace fallback
 - the candidate remains local during the judging freeze: no companion or
   plugin branch, pull request, tag, release, or asset has been pushed or
   published from this release train
@@ -92,7 +92,7 @@ tools/xcode-headless-installer/scripts/package_dmg.sh \
   --plugin-profile /path/to/rendered/xcode-headless \
   --plugin-version 0.2.1 \
   --version 0.2.1 \
-  --build 2 \
+  --build 3 \
   --hook-runtime /tmp/apple-appdev-hook-runtime-v24.19.0/node \
   --hook-runtime-license /tmp/apple-appdev-hook-runtime-v24.19.0/LICENSE \
   --output-dir /tmp/apple-appdev-xcode-companion \

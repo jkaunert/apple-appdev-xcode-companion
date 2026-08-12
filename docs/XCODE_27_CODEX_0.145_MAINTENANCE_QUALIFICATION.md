@@ -9,11 +9,11 @@ explicitly lifted.
 ## Candidate contract
 
 - companion app version: `0.2.1`
-- companion app build: `2`
+- companion app build: `3`
 - embedded plugin identity: `apple-appdev-workflow@apple-developer-tools`
 - embedded plugin version: `0.2.1`
 - embedded plugin source:
-  `c597d1e289a1afe2d28469f43e07ae65261a95a7`
+  `835435901c5ac46d5d45176e16d8c2e0f568d886`
 - Xcode host: Xcode 27 Beta 5, build `27A5237l`
 - stock Xcode Codex: `codex-cli 0.145.0`
 - qualification contract: `3`
@@ -29,11 +29,11 @@ neutral reason `workspace-extension:xcworkspace`, and adds natural-language
 macOS and Swift Package cases requiring exact authored-prompt reasons
 `prompt-signal:macos` and `prompt-signal:swift package`.
 
-## Build-2 local source candidate
+## Build-3 local source candidate
 
 The exact validated source render has no symlinks and contains plugin version
 `0.2.1`. Its source routing-core SHA-256 is
-`39cba2b3cb2a2e15b561cd94cdfa5fabef465d6c10ad4b0819bbcdbf17a4bfa6`.
+`e0606455bb9d8ce4dc6d74cfd6e517eba5ba2cd91062ea7f651ee91b99f87ba8`.
 The component hashes are recorded in
 [`SOURCE_PROVENANCE.md`](SOURCE_PROVENANCE.md).
 

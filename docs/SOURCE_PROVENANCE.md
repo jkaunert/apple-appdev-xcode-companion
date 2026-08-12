@@ -23,13 +23,13 @@ The extracted installer tree is byte-identical to the tree used by the earlier
 0.2.0 package-qualification commit
 `952f2a5761c4beaad835b6b8ec34ae53136e44b0`.
 
-## Local 0.2.1 build-2 candidate
+## Local 0.2.1 build-3 candidate
 
-The unpublished build-2 candidate embeds the validated `xcode-headless`
+The unpublished build-3 candidate embeds the validated `xcode-headless`
 profile rendered from private Apple AppDev Workflow topic commit:
 
 ```text
-c597d1e289a1afe2d28469f43e07ae65261a95a7
+835435901c5ac46d5d45176e16d8c2e0f568d886
 ```
 
 That source descends from private `main` at
@@ -42,14 +42,14 @@ and these candidate hashes:
 hooks/hooks.json: 0451510d0746ff745b246cb41d57fd99faa74153e13486a3af8320d6de10793e
 hooks/apple_router.mjs: 8195ca4054b68d9b8815acd38b85cee6a6af7c809fc2e974ba1448255dc657c2
 hooks/apple_contract_guard.mjs: 895cef34b9c45ca0ae5557fccde5693854def4d33734acd621494e5090dadfe8
-routing/router-policy.json: ba806e008b86c9d1d7e24fb94a4c671f945dfb5daf5a29bd101fc5784e3c40d3
+routing/router-policy.json: 4dede6d5a1103948877b2e92c12ee92c14c6ee78a95f3f980fc60571ce1a7d72
 routing/top-level-owner-kernel.md: 2d00c2577be2174de4aa9b30c7a8f3380e8ded50455dc3d030604d67f7a45949
-source routing core: 39cba2b3cb2a2e15b561cd94cdfa5fabef465d6c10ad4b0819bbcdbf17a4bfa6
+source routing core: e0606455bb9d8ce4dc6d74cfd6e517eba5ba2cd91062ea7f651ee91b99f87ba8
 ```
 
 The local public Marketplace payload commit is
-`506affbe79e8aee0a5cec6e170b6699ea976207a`; its local provenance follow-up
-is `9e991296ed15e29630092fc69221b4fcba124159`. Neither repository has been
+`24c1aaedbbf0c4182a2bd31830908d859cd9342a`; its local provenance follow-up
+is `0d6deaf9057e0d76149856aa3e641bb331aef07a`. Neither repository has been
 pushed from this release train.
 
 ## Published 0.2.0 build-4 qualification
