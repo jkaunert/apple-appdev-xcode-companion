@@ -49,8 +49,9 @@ source routing core: e0606455bb9d8ce4dc6d74cfd6e517eba5ba2cd91062ea7f651ee91b99f
 
 The local public Marketplace payload commit is
 `24c1aaedbbf0c4182a2bd31830908d859cd9342a`; its local provenance follow-up
-is `0d6deaf9057e0d76149856aa3e641bb331aef07a`. Neither repository has been
-pushed from this release train.
+is `e478bbf3a0ab3477aab7d9fb6213f14318fc77b5` (including the earlier
+`0d6deaf9057e0d76149856aa3e641bb331aef07a` candidate-provenance commit).
+Neither repository has been pushed from this release train.
 
 The signed and notarized companion artifact was built from clean companion
 commit `d6688435df3f63ebea68a8d6ed2d289c19975c75`. Its DMG SHA-256 is
