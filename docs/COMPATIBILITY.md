@@ -1,13 +1,30 @@
 # Compatibility Contract
 
-This companion release is pinned to the following Marketplace plugin
+The companion `0.2.1` build-3 release contract is pinned to this Xcode profile
 identity:
 
-The published `v0.2.0` facts below remain historical. The companion-only
-Xcode 27/Codex `0.145.0` maintenance candidate is tracked separately in
-[`XCODE_27_CODEX_0.145_MAINTENANCE_QUALIFICATION.md`](XCODE_27_CODEX_0.145_MAINTENANCE_QUALIFICATION.md);
-it keeps plugin version `0.2.0` while packaging the lifecycle-hook runtime
-inside the Xcode profile.
+```text
+plugin: apple-appdev-workflow
+plugin version: 0.2.1
+marketplace source: apple-developer-tools
+private source commit: 835435901c5ac46d5d45176e16d8c2e0f568d886
+qualification contract: 3
+companion app version: 0.2.1
+companion app build: 3
+```
+
+Its profile preserves deterministic top-level ownership, adds authored macOS
+and Swift Package prompt provenance, and retains
+`workspace-extension:xcworkspace` only for the neutral Xcode host-context
+case. The notarized build-3 artifact, explicit hook review, and 11-case live
+Xcode qualification are green; the exact hashes and evidence are in
+[`XCODE_27_CODEX_0.145_MAINTENANCE_QUALIFICATION.md`](XCODE_27_CODEX_0.145_MAINTENANCE_QUALIFICATION.md).
+The companion release does not publish or modify the paired public plugin
+repository.
+
+## Published 0.2.0 compatibility record
+
+The following facts remain the historical published `v0.2.0` contract:
 
 ```text
 plugin: apple-appdev-workflow

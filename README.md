@@ -27,12 +27,18 @@ CodingAssistant Codex home without changing Xcode's active Codex agent.
   [release qualification](docs/RELEASE_QUALIFICATION.md)
 - the verified tag, asset, and publication record is in the
   [0.2.0 release packet](docs/RELEASE_PACKET_0.2.0.md)
-- the public plugin repository remains frozen during the Build Week judging
-  window and is not modified by companion development
-- the next companion maintenance candidate keeps the public plugin payload at
-  `0.2.0` while embedding a pinned, licensed Node.js LTS runtime inside the
-  Xcode-only installed profile; Xcode 27/Codex `0.145.0` qualification is in
-  progress and does not change the frozen plugin repository
+- the public plugin repository was held unchanged throughout the Build Week
+  judging window and remains outside companion release scope
+- the qualified build-3 companion maintenance candidate keeps application version
+  `0.2.1` and embeds plugin profile `0.2.1`, rendered from private source
+  `835435901c5ac46d5d45176e16d8c2e0f568d886`; it adds authored Swift Package
+  routing under qualification contract v3, ranks that specific domain above
+  generic `xcode`, and retains the neutral Xcode workspace fallback; the exact
+  notarized build passed explicit hook review and all 11 Xcode Beta 5 cases
+- companion publication is valid only when tag `v0.2.1` targets exact package
+  source commit `d6688435df3f63ebea68a8d6ed2d289c19975c75` and the public DMG and
+  sidecars match the qualified hashes; it does not publish or modify the paired
+  public plugin repository
 
 See [source provenance](docs/SOURCE_PROVENANCE.md) for the exact extraction
 boundary and [compatibility contract](docs/COMPATIBILITY.md) for the pinned
@@ -86,7 +92,9 @@ tools/xcode-headless-installer/scripts/fetch_hook_runtime.sh \
 
 tools/xcode-headless-installer/scripts/package_dmg.sh \
   --plugin-profile /path/to/rendered/xcode-headless \
-  --plugin-version 0.2.0 \
+  --plugin-version 0.2.1 \
+  --version 0.2.1 \
+  --build 3 \
   --hook-runtime /tmp/apple-appdev-hook-runtime-v24.19.0/node \
   --hook-runtime-license /tmp/apple-appdev-hook-runtime-v24.19.0/LICENSE \
   --output-dir /tmp/apple-appdev-xcode-companion \

@@ -32,9 +32,11 @@ FETCH_HOOK_RUNTIME_SCRIPT = (
     / "fetch_hook_runtime.sh"
 )
 PLUGIN_NAME = "apple-appdev-workflow"
-PLUGIN_VERSION = "0.2.0"
+PLUGIN_VERSION = "0.2.1"
 PLUGIN_SOURCE = "apple-developer-tools"
 LOCAL_PLUGIN_SOURCE = "LocalAppleWorkflow"
+APP_VERSION = "0.2.1"
+APP_BUILD = "2"
 REQUIRED_PROFILE_FILES = (
     "hooks/apple_router.mjs",
     "hooks/apple_contract_guard.mjs",
@@ -718,7 +720,7 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             xcode_home = root / "xcode-home"
             arguments = self.install_arguments(payload_root, xcode_home)
             version_index = arguments.index(PLUGIN_VERSION)
-            arguments[version_index] = "0.2.0\nforged-log-line"
+            arguments[version_index] = f"{PLUGIN_VERSION}\nforged-log-line"
 
             result = self.run_installer(*arguments, expected_returncode=1)
 
@@ -757,7 +759,7 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
                     "--plugin-version",
                     PLUGIN_VERSION,
                     "--version",
-                    "0.2.1",
+                    APP_VERSION,
                     "--output-dir",
                     str(output_dir),
                     *hook_arguments,
@@ -773,6 +775,8 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             self.assertIn("validate --review-plugin-hooks", result.stdout)
             self.assertIn("source_commit:", result.stdout)
             self.assertIn("source_dirty:", result.stdout)
+            self.assertIn(f"app_version: {APP_VERSION}", result.stdout)
+            self.assertIn(f"app_build: {APP_BUILD}", result.stdout)
             self.assertIn(
                 f'-target "{platform.machine()}-apple-macosx15.0"',
                 result.stdout,
