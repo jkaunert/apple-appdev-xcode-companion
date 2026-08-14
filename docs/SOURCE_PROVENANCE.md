@@ -23,10 +23,10 @@ The extracted installer tree is byte-identical to the tree used by the earlier
 0.2.0 package-qualification commit
 `952f2a5761c4beaad835b6b8ec34ae53136e44b0`.
 
-## Local 0.2.1 build-3 candidate
+## Companion 0.2.1 build-3 release candidate
 
-The unpublished build-3 candidate embeds the validated `xcode-headless`
-profile rendered from private Apple AppDev Workflow topic commit:
+The build-3 candidate embeds the validated `xcode-headless` profile rendered
+from private Apple AppDev Workflow topic commit:
 
 ```text
 835435901c5ac46d5d45176e16d8c2e0f568d886
@@ -51,7 +51,8 @@ The local public Marketplace payload commit is
 `24c1aaedbbf0c4182a2bd31830908d859cd9342a`; its local provenance follow-up
 is `e478bbf3a0ab3477aab7d9fb6213f14318fc77b5` (including the earlier
 `0d6deaf9057e0d76149856aa3e641bb331aef07a` candidate-provenance commit).
-Neither repository has been pushed from this release train.
+Those plugin-source commits are not published by the companion release; only
+the companion source tag and qualified companion assets are promoted.
 
 The signed and notarized companion artifact was built from clean companion
 commit `d6688435df3f63ebea68a8d6ed2d289c19975c75`. Its DMG SHA-256 is

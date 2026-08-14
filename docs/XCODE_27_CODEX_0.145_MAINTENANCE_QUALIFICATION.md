@@ -1,10 +1,10 @@
 # Xcode 27 / Codex 0.145 Maintenance Qualification
 
 This document tracks the companion-only maintenance candidate prompted by the
-Xcode 27 Beta 5 host change. Local source, packaging, installation, and
-qualification work may continue during judging, but no branch, pull request,
-tag, release, or asset may be pushed or published until the remote freeze is
-explicitly lifted.
+Xcode 27 Beta 5 host change. Source, packaging, installation, and qualification
+were completed locally during the judging freeze. Companion-only promotion
+began after that window ended; the paired public `apple-appdev-workflow`
+repository remains unchanged and outside this release scope.
 
 ## Candidate contract
 
@@ -275,7 +275,9 @@ asset remains a separate release operation.
 8. Record final artifact hashes, trust hashes, session IDs, and the v3 scorer
    report before publishing a companion maintenance release.
 
-All eight technical steps are green locally. The candidate is ready only for
-post-freeze branch promotion and release publication; it remains a public
-release `no-go` until the judging freeze is explicitly lifted and the remote
-state is rechecked.
+All eight technical steps are green. Public promotion is valid only after the
+companion branch is merged, tag `v0.2.1` resolves to exact package source
+commit `d6688435df3f63ebea68a8d6ed2d289c19975c75`, the three qualified assets
+are uploaded byte-for-byte, and a fresh public download reproduces the hashes
+above. Any mismatch keeps the public release at `no-go` and requires a new
+package and qualification cycle.

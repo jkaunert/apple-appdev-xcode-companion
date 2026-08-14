@@ -1,7 +1,7 @@
 # Compatibility Contract
 
-The local, unpublished companion `0.2.1` build-3 candidate is pinned to this
-Xcode profile identity:
+The companion `0.2.1` build-3 release contract is pinned to this Xcode profile
+identity:
 
 ```text
 plugin: apple-appdev-workflow
@@ -17,10 +17,10 @@ Its profile preserves deterministic top-level ownership, adds authored macOS
 and Swift Package prompt provenance, and retains
 `workspace-extension:xcworkspace` only for the neutral Xcode host-context
 case. The notarized build-3 artifact, explicit hook review, and 11-case live
-Xcode qualification are green locally; the exact hashes and evidence are in
+Xcode qualification are green; the exact hashes and evidence are in
 [`XCODE_27_CODEX_0.145_MAINTENANCE_QUALIFICATION.md`](XCODE_27_CODEX_0.145_MAINTENANCE_QUALIFICATION.md).
-Nothing in this candidate has been pushed or published during the judging
-freeze.
+The companion release does not publish or modify the paired public plugin
+repository.
 
 ## Published 0.2.0 compatibility record
 
