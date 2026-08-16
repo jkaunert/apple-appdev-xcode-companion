@@ -5,6 +5,7 @@ import os
 import platform
 import pty
 import select
+import shutil
 import subprocess
 import tempfile
 import time
@@ -51,6 +52,9 @@ STOP_COMMAND = (
     '"$PLUGIN_ROOT/hooks/runtime/node" '
     '"$PLUGIN_ROOT/hooks/apple_contract_guard.mjs"'
 )
+XCODEBUILDMCP_VERSION = "2.7.0"
+XCODEBUILDMCP_ARCHIVE_SHA256 = "a" * 64
+XCODEBUILDMCP_ARCHIVE_SIZE = "123"
 
 
 class XcodeHeadlessInstallerTests(unittest.TestCase):
@@ -170,6 +174,84 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             "--hook-runtime-license",
             str(license_path),
         ]
+
+    def make_xcodebuildmcp_runtime(self, root: Path) -> tuple[Path, Path, str]:
+        platform_name = {
+            "arm64": "darwin-arm64",
+            "x86_64": "darwin-x64",
+        }[platform.machine()]
+        payload_root = root / "XcodeBuildMCPRuntime"
+        release = payload_root / "releases" / XCODEBUILDMCP_VERSION / platform_name
+        binary = release / "bin" / "xcodebuildmcp"
+        doctor = release / "bin" / "xcodebuildmcp-doctor"
+        node = release / "libexec" / "node-runtime"
+        for executable, body in (
+            (
+                binary,
+                "#!/bin/sh\n"
+                "if [ \"${1:-}\" = \"--version\" ]; then\n"
+                f"  printf '%s\\n' '{XCODEBUILDMCP_VERSION}'\n"
+                "  exit 0\n"
+                "fi\n"
+                "exit 0\n",
+            ),
+            (doctor, "#!/bin/sh\nexit 0\n"),
+        ):
+            executable.parent.mkdir(parents=True, exist_ok=True)
+            executable.write_text(body)
+            executable.chmod(0o755)
+        node.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile("/usr/bin/true", node)
+        node.chmod(0o755)
+        lock = {
+            "schemaVersion": 1,
+            "runtime": "xcodebuildmcp",
+            "channel": "qualified-stable",
+            "resolvedFrom": "latest",
+            "package": {"version": XCODEBUILDMCP_VERSION},
+            "provenance": {
+                "repository": "https://github.com/getsentry/XcodeBuildMCP"
+            },
+            "portable": {
+                "assets": {
+                    platform_name: {
+                        "sha256": XCODEBUILDMCP_ARCHIVE_SHA256,
+                        "size": int(XCODEBUILDMCP_ARCHIVE_SIZE),
+                    }
+                }
+            },
+            "runtimePolicy": {
+                "installScripts": "forbidden",
+                "ambientRuntimeFallback": "forbidden",
+                "telemetryEnvironment": {
+                    "XCODEBUILDMCP_SENTRY_DISABLED": "true",
+                    "SENTRY_DISABLED": "true",
+                },
+                "enabledWorkflows": ["session-management", "swift-package"],
+            },
+        }
+        (release / "runtime-lock.json").write_text(json.dumps(lock, indent=2) + "\n")
+        (release / "runtime.env").write_text(
+            f"XCODEBUILDMCP_RUNTIME_VERSION={XCODEBUILDMCP_VERSION}\n"
+        )
+        (release / "runtime-receipt.env").write_text(
+            "\n".join(
+                (
+                    "SCHEMA_VERSION=1",
+                    "RUNTIME=xcodebuildmcp",
+                    f"VERSION={XCODEBUILDMCP_VERSION}",
+                    f"PLATFORM={platform_name}",
+                    f"ARCHIVE_SHA256={XCODEBUILDMCP_ARCHIVE_SHA256}",
+                    f"ARCHIVE_SIZE={XCODEBUILDMCP_ARCHIVE_SIZE}",
+                )
+            )
+            + "\n"
+        )
+        return payload_root, release, platform_name
+
+    def package_xcodebuildmcp_arguments(self, root: Path) -> list[str]:
+        _, release, _ = self.make_xcodebuildmcp_runtime(root)
+        return ["--xcodebuildmcp-runtime", str(release)]
 
     def run_installer(
         self,
@@ -404,6 +486,7 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             source,
         )
         self.assertIn("try installPackagedPluginProfile(options: options)", source)
+        self.assertIn("try installPackagedXcodeBuildMCPRuntime(options: runtimeOptions)", source)
 
     def test_interactive_install_offers_stock_codex_hook_review_without_pretrust(
         self,
@@ -428,6 +511,89 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             "review and trust the UserPromptSubmit hook with stock Codex.",
             source,
         )
+
+    def test_xcodebuildmcp_runtime_install_is_versioned_and_idempotent(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            payload_root, _, platform_name = self.make_xcodebuildmcp_runtime(root / "payload")
+            runtime_root = root / "shared-runtime"
+            arguments = [
+                "--install-xcodebuildmcp-runtime",
+                "--xcodebuildmcp-payload-root",
+                str(payload_root),
+                "--xcodebuildmcp-version",
+                XCODEBUILDMCP_VERSION,
+                "--xcodebuildmcp-platform",
+                platform_name,
+                "--xcodebuildmcp-runtime-root",
+                str(runtime_root),
+            ]
+
+            first = self.run_installer(*arguments)
+            destination = (
+                runtime_root
+                / "releases"
+                / XCODEBUILDMCP_VERSION
+                / platform_name
+            )
+            self.assertTrue((destination / "bin/xcodebuildmcp").is_file())
+            self.assertIn("Xcode CodingAssistant MCP ownership unchanged", first.stdout)
+
+            second = self.run_installer(*arguments)
+            self.assertIn("runtime is already current", second.stdout)
+            self.assertEqual(list((runtime_root / "backups").iterdir()), [])
+
+    def test_xcodebuildmcp_runtime_force_preserves_invalid_existing_runtime(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            payload_root, _, platform_name = self.make_xcodebuildmcp_runtime(root / "payload")
+            runtime_root = root / "shared-runtime"
+            arguments = [
+                "--install-xcodebuildmcp-runtime",
+                "--xcodebuildmcp-payload-root",
+                str(payload_root),
+                "--xcodebuildmcp-version",
+                XCODEBUILDMCP_VERSION,
+                "--xcodebuildmcp-platform",
+                platform_name,
+                "--xcodebuildmcp-runtime-root",
+                str(runtime_root),
+            ]
+            self.run_installer(*arguments)
+            destination = runtime_root / "releases" / XCODEBUILDMCP_VERSION / platform_name
+            (destination / "runtime-receipt.env").write_text("corrupt\n")
+
+            refused = self.run_installer(*arguments, expected_returncode=1)
+            self.assertIn("pass --force", refused.stderr)
+
+            replaced = self.run_installer(*arguments, "--force")
+            self.assertIn("preserve previous XcodeBuildMCP runtime", replaced.stdout)
+            backups = list((runtime_root / "backups").iterdir())
+            self.assertEqual(len(backups), 1)
+            self.assertEqual((backups[0] / "runtime-receipt.env").read_text(), "corrupt\n")
+
+    def test_xcodebuildmcp_runtime_rejects_escaping_symlink(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            payload_root, release, platform_name = self.make_xcodebuildmcp_runtime(root / "payload")
+            outside = root / "outside"
+            outside.write_text("outside\n")
+            (release / "escape").symlink_to(outside)
+
+            result = self.run_installer(
+                "--install-xcodebuildmcp-runtime",
+                "--xcodebuildmcp-payload-root",
+                str(payload_root),
+                "--xcodebuildmcp-version",
+                XCODEBUILDMCP_VERSION,
+                "--xcodebuildmcp-platform",
+                platform_name,
+                "--xcodebuildmcp-runtime-root",
+                str(root / "shared-runtime"),
+                expected_returncode=1,
+            )
+
+            self.assertIn("escaping symbolic link", result.stderr)
 
     def test_plugin_profile_dry_run_never_mutates_xcode_home(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -750,6 +916,9 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             _, profile = self.make_payload(root, marker="package")
             output_dir = root / "output"
             hook_arguments = self.package_hook_arguments(root / "hook-runtime")
+            xcodebuildmcp_arguments = self.package_xcodebuildmcp_arguments(
+                root / "xcodebuildmcp-runtime"
+            )
 
             result = subprocess.run(
                 [
@@ -763,6 +932,7 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
                     "--output-dir",
                     str(output_dir),
                     *hook_arguments,
+                    *xcodebuildmcp_arguments,
                     "--dry-run",
                 ],
                 text=True,
@@ -772,17 +942,23 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             self.assertIn("validate --install-plugin-profile", result.stdout)
+            self.assertIn("validate --install-xcodebuildmcp-runtime", result.stdout)
             self.assertIn("validate --review-plugin-hooks", result.stdout)
             self.assertIn("source_commit:", result.stdout)
             self.assertIn("source_dirty:", result.stdout)
             self.assertIn(f"app_version: {APP_VERSION}", result.stdout)
             self.assertIn(f"app_build: {APP_BUILD}", result.stdout)
+            self.assertRegex(result.stdout, r"xcodebuildmcp_lock_sha256: [0-9a-f]{64}")
             self.assertIn(
                 f'-target "{platform.machine()}-apple-macosx15.0"',
                 result.stdout,
             )
-            self.assertNotIn("copy runtime payload", result.stdout)
+            self.assertNotIn("copy Xcode agent runtime payload", result.stdout)
             self.assertIn("embed self-contained hook runtime", result.stdout)
+            self.assertIn(
+                "copy and validate the exact portable XcodeBuildMCP runtime",
+                result.stdout,
+            )
             self.assertIn(
                 "AppleAppDevXcodeHeadlessInstaller-0.2.1.dmg",
                 result.stdout,
@@ -792,6 +968,31 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
                 result.stdout,
             )
             self.assertFalse(output_dir.exists())
+
+    def test_plugin_profile_package_requires_xcodebuildmcp_runtime(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _, profile = self.make_payload(root, marker="package")
+            hook_arguments = self.package_hook_arguments(root / "hook-runtime")
+
+            result = subprocess.run(
+                [
+                    str(PACKAGE_SCRIPT),
+                    "--plugin-profile",
+                    str(profile),
+                    *hook_arguments,
+                    "--dry-run",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn(
+                "--plugin-profile requires --xcodebuildmcp-runtime",
+                result.stderr,
+            )
 
     def test_hook_runtime_fetch_dry_run_is_pinned_and_non_mutating(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -819,6 +1020,9 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             root = Path(temp_dir)
             _, profile = self.make_payload(root, marker="package")
             hook_arguments = self.package_hook_arguments(root / "hook-runtime")
+            xcodebuildmcp_arguments = self.package_xcodebuildmcp_arguments(
+                root / "xcodebuildmcp-runtime"
+            )
 
             result = subprocess.run(
                 [
@@ -829,6 +1033,7 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
                     "--keychain-profile",
                     "fixture-profile",
                     *hook_arguments,
+                    *xcodebuildmcp_arguments,
                     "--dry-run",
                 ],
                 text=True,
@@ -844,6 +1049,9 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             root = Path(temp_dir)
             _, profile = self.make_payload(root, marker="package")
             hook_arguments = self.package_hook_arguments(root / "hook-runtime")
+            xcodebuildmcp_arguments = self.package_xcodebuildmcp_arguments(
+                root / "xcodebuildmcp-runtime"
+            )
 
             result = subprocess.run(
                 [
@@ -853,6 +1061,7 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
                     "--plugin-version",
                     "../escape",
                     *hook_arguments,
+                    *xcodebuildmcp_arguments,
                     "--dry-run",
                 ],
                 text=True,
@@ -868,6 +1077,9 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             root = Path(temp_dir)
             _, profile = self.make_payload(root, marker="package")
             hook_arguments = self.package_hook_arguments(root / "hook-runtime")
+            xcodebuildmcp_arguments = self.package_xcodebuildmcp_arguments(
+                root / "xcodebuildmcp-runtime"
+            )
 
             result = subprocess.run(
                 [
@@ -877,6 +1089,7 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
                     "--version",
                     "../escape",
                     *hook_arguments,
+                    *xcodebuildmcp_arguments,
                     "--dry-run",
                 ],
                 text=True,

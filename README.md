@@ -56,6 +56,15 @@ The self-contained maintenance package contains:
 - no bundled MCP proxy
 - no plugin-managed MCP servers
 
+This branch also prepares the next companion candidate to carry the workflow's
+qualified portable XcodeBuildMCP runtime. That payload installs versioned under
+`~/Library/Application Support/Apple AppDev Workflow/runtime/xcodebuildmcp`
+for the ordinary plugin/CLI surface; it is not registered in Xcode's
+CodingAssistant home. Xcode therefore keeps its native `xcode-tools` owner and
+the package still contains no MCP proxy or second Xcode bridge owner. This is
+implementation evidence only until a clean, signed, notarized DMG completes
+the release qualification matrix.
+
 The installer validates the embedded profile, refuses symbolic-link payloads,
 backs up the prior profile and Xcode Codex config, enables the public
 marketplace identity, disables conflicting identities without deleting their
@@ -97,6 +106,7 @@ tools/xcode-headless-installer/scripts/package_dmg.sh \
   --build 3 \
   --hook-runtime /tmp/apple-appdev-hook-runtime-v24.19.0/node \
   --hook-runtime-license /tmp/apple-appdev-hook-runtime-v24.19.0/LICENSE \
+  --xcodebuildmcp-runtime "$HOME/Library/Application Support/Apple AppDev Workflow/runtime/xcodebuildmcp/releases/2.7.0/darwin-arm64" \
   --output-dir /tmp/apple-appdev-xcode-companion \
   --dry-run
 ```

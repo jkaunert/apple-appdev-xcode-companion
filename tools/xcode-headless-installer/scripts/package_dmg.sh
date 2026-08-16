@@ -12,6 +12,7 @@ PLUGIN_VERSION=""
 PLUGIN_NAME="apple-appdev-workflow"
 HOOK_RUNTIME=""
 HOOK_RUNTIME_LICENSE=""
+XCODEBUILDMCP_RUNTIME=""
 OUTPUT_DIR=""
 OUTPUT_DMG=""
 BUNDLE_ID="com.joshuakaunert.apple-appdev-workflow.xcode-headless-installer"
@@ -44,6 +45,8 @@ Payload options:
   --hook-runtime PATH       Self-contained Node executable embedded with plugin hooks.
   --hook-runtime-license PATH
                             License file distributed beside the hook runtime.
+  --xcodebuildmcp-runtime PATH
+                            Qualified portable runtime release directory. Required with --plugin-profile.
   --agent-runtime PATH      Optional Codex runtime binary to embed.
   --agent-version VALUE     Agent payload directory name. Defaults to runtime version plus timestamp.
   --agent-url URL           Agent metadata URL. Defaults to local-fork-runtime://<agent-version>/codex.
@@ -93,6 +96,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --hook-runtime-license)
       HOOK_RUNTIME_LICENSE="${2:-}"
+      shift 2
+      ;;
+    --xcodebuildmcp-runtime)
+      XCODEBUILDMCP_RUNTIME="${2:-}"
       shift 2
       ;;
     --agent-runtime)
@@ -260,6 +267,10 @@ if [[ -n "$PLUGIN_PROFILE" && -z "$HOOK_RUNTIME_LICENSE" ]]; then
   echo "error: --plugin-profile requires --hook-runtime-license" >&2
   exit 2
 fi
+if [[ -n "$PLUGIN_PROFILE" && -z "$XCODEBUILDMCP_RUNTIME" ]]; then
+  echo "error: --plugin-profile requires --xcodebuildmcp-runtime" >&2
+  exit 2
+fi
 [[ -n "$BUNDLE_ID" ]] || { echo "error: --bundle-id cannot be empty" >&2; exit 2; }
 [[ -n "$APP_BUILD" ]] || { echo "error: --build cannot be empty" >&2; exit 2; }
 [[ -n "$MIN_SYSTEM_VERSION" ]] || { echo "error: --min-system cannot be empty" >&2; exit 2; }
@@ -340,6 +351,94 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
   HOOK_RUNTIME_LICENSE_SHA256="$(shasum -a 256 "$HOOK_RUNTIME_LICENSE" | awk '{print $1}')"
   if [[ "$DRY_RUN" != "1" ]]; then
     require_self_contained_hook_runtime
+  fi
+fi
+
+XCODEBUILDMCP_VERSION=""
+XCODEBUILDMCP_PLATFORM=""
+XCODEBUILDMCP_ARCHIVE_SHA256=""
+XCODEBUILDMCP_ARCHIVE_SIZE=""
+XCODEBUILDMCP_LOCK_SHA256=""
+if [[ -n "$XCODEBUILDMCP_RUNTIME" ]]; then
+  [[ -d "$XCODEBUILDMCP_RUNTIME" && ! -L "$XCODEBUILDMCP_RUNTIME" ]] || {
+    echo "error: --xcodebuildmcp-runtime must be a real directory: $XCODEBUILDMCP_RUNTIME" >&2
+    exit 1
+  }
+  XCODEBUILDMCP_RECEIPT="$XCODEBUILDMCP_RUNTIME/runtime-receipt.env"
+  XCODEBUILDMCP_LOCK="$XCODEBUILDMCP_RUNTIME/runtime-lock.json"
+  for required in \
+    "$XCODEBUILDMCP_RECEIPT" \
+    "$XCODEBUILDMCP_LOCK" \
+    "$XCODEBUILDMCP_RUNTIME/runtime.env" \
+    "$XCODEBUILDMCP_RUNTIME/bin/xcodebuildmcp" \
+    "$XCODEBUILDMCP_RUNTIME/bin/xcodebuildmcp-doctor" \
+    "$XCODEBUILDMCP_RUNTIME/libexec/node-runtime"; do
+    [[ -f "$required" ]] || {
+      echo "error: XcodeBuildMCP runtime lacks required file: $required" >&2
+      exit 1
+    }
+  done
+  [[ "$(wc -l < "$XCODEBUILDMCP_RECEIPT" | tr -d ' ')" == "6" ]] || {
+    echo "error: XcodeBuildMCP runtime receipt must contain exactly six lines" >&2
+    exit 1
+  }
+  [[ "$(grep -Fxc 'SCHEMA_VERSION=1' "$XCODEBUILDMCP_RECEIPT")" == "1" ]] || {
+    echo "error: XcodeBuildMCP runtime receipt schema mismatch" >&2
+    exit 1
+  }
+  [[ "$(grep -Fxc 'RUNTIME=xcodebuildmcp' "$XCODEBUILDMCP_RECEIPT")" == "1" ]] || {
+    echo "error: XcodeBuildMCP runtime receipt identity mismatch" >&2
+    exit 1
+  }
+  XCODEBUILDMCP_VERSION="$(awk -F= '$1 == "VERSION" {print substr($0, index($0, "=") + 1)}' "$XCODEBUILDMCP_RECEIPT")"
+  XCODEBUILDMCP_PLATFORM="$(awk -F= '$1 == "PLATFORM" {print substr($0, index($0, "=") + 1)}' "$XCODEBUILDMCP_RECEIPT")"
+  XCODEBUILDMCP_ARCHIVE_SHA256="$(awk -F= '$1 == "ARCHIVE_SHA256" {print substr($0, index($0, "=") + 1)}' "$XCODEBUILDMCP_RECEIPT")"
+  XCODEBUILDMCP_ARCHIVE_SIZE="$(awk -F= '$1 == "ARCHIVE_SIZE" {print substr($0, index($0, "=") + 1)}' "$XCODEBUILDMCP_RECEIPT")"
+  XCODEBUILDMCP_LOCK_SHA256="$(shasum -a 256 "$XCODEBUILDMCP_LOCK" | awk '{print $1}')"
+  require_safe_component "XcodeBuildMCP version" "$XCODEBUILDMCP_VERSION"
+  require_safe_component "XcodeBuildMCP platform" "$XCODEBUILDMCP_PLATFORM"
+  [[ "$XCODEBUILDMCP_ARCHIVE_SHA256" =~ ^[0-9a-f]{64}$ ]] || {
+    echo "error: XcodeBuildMCP archive SHA-256 is invalid" >&2
+    exit 1
+  }
+  [[ "$XCODEBUILDMCP_ARCHIVE_SIZE" =~ ^[1-9][0-9]*$ ]] || {
+    echo "error: XcodeBuildMCP archive size is invalid" >&2
+    exit 1
+  }
+  [[ "$(manifest_value package.version "$XCODEBUILDMCP_LOCK")" == "$XCODEBUILDMCP_VERSION" ]] || {
+    echo "error: XcodeBuildMCP lock version does not match receipt" >&2
+    exit 1
+  }
+  [[ "$(manifest_value "portable.assets.$XCODEBUILDMCP_PLATFORM.sha256" "$XCODEBUILDMCP_LOCK")" == "$XCODEBUILDMCP_ARCHIVE_SHA256" ]] || {
+    echo "error: XcodeBuildMCP lock SHA-256 does not match receipt" >&2
+    exit 1
+  }
+  [[ "$(manifest_value "portable.assets.$XCODEBUILDMCP_PLATFORM.size" "$XCODEBUILDMCP_LOCK")" == "$XCODEBUILDMCP_ARCHIVE_SIZE" ]] || {
+    echo "error: XcodeBuildMCP lock size does not match receipt" >&2
+    exit 1
+  }
+  [[ "$(manifest_value runtimePolicy.installScripts "$XCODEBUILDMCP_LOCK")" == "forbidden" ]] || {
+    echo "error: XcodeBuildMCP lock must forbid install scripts" >&2
+    exit 1
+  }
+  [[ "$(manifest_value runtimePolicy.ambientRuntimeFallback "$XCODEBUILDMCP_LOCK")" == "forbidden" ]] || {
+    echo "error: XcodeBuildMCP lock must forbid ambient runtime fallback" >&2
+    exit 1
+  }
+  if [[ "$DRY_RUN" != "1" ]]; then
+    codesign --verify --strict "$XCODEBUILDMCP_RUNTIME/libexec/node-runtime"
+    DETECTED_XCODEBUILDMCP_VERSION="$({
+      /usr/bin/env -i \
+        HOME="${HOME:-/var/empty}" \
+        PATH=/usr/bin:/bin:/usr/sbin:/sbin \
+        XCODEBUILDMCP_SENTRY_DISABLED=true \
+        SENTRY_DISABLED=true \
+        "$XCODEBUILDMCP_RUNTIME/bin/xcodebuildmcp" --version
+    } 2>/dev/null | head -n 1)"
+    [[ "$DETECTED_XCODEBUILDMCP_VERSION" == "$XCODEBUILDMCP_VERSION" ]] || {
+      echo "error: XcodeBuildMCP binary version does not match receipt" >&2
+      exit 1
+    }
   fi
 fi
 
@@ -452,6 +551,7 @@ PAYLOAD_DIR=""
 PLUGIN_PAYLOAD_DIR=""
 HOOK_RUNTIME_DESTINATION=""
 HOOK_RUNTIME_LICENSE_DESTINATION=""
+XCODEBUILDMCP_RUNTIME_DESTINATION=""
 if [[ -n "$AGENT_RUNTIME" ]]; then
   PAYLOAD_DIR="$RESOURCES_DIR/XcodeAgent/$AGENT_VERSION"
 fi
@@ -459,6 +559,9 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
   PLUGIN_PAYLOAD_DIR="$RESOURCES_DIR/XcodePluginProfile/$PLUGIN_NAME/$PLUGIN_VERSION"
   HOOK_RUNTIME_DESTINATION="$PLUGIN_PAYLOAD_DIR/hooks/runtime/node"
   HOOK_RUNTIME_LICENSE_DESTINATION="$PLUGIN_PAYLOAD_DIR/hooks/runtime/LICENSE"
+fi
+if [[ -n "$XCODEBUILDMCP_RUNTIME" ]]; then
+  XCODEBUILDMCP_RUNTIME_DESTINATION="$RESOURCES_DIR/XcodeBuildMCPRuntime/releases/$XCODEBUILDMCP_VERSION/$XCODEBUILDMCP_PLATFORM"
 fi
 
 echo "Xcode-headless installer package plan"
@@ -479,6 +582,12 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
   echo "  hook_runtime_license: $HOOK_RUNTIME_LICENSE"
   echo "  hook_runtime_license_sha256: $HOOK_RUNTIME_LICENSE_SHA256"
   echo "  plugin_payload_destination: $PLUGIN_PAYLOAD_DIR"
+  echo "  xcodebuildmcp_runtime: $XCODEBUILDMCP_RUNTIME"
+  echo "  xcodebuildmcp_version: $XCODEBUILDMCP_VERSION"
+  echo "  xcodebuildmcp_platform: $XCODEBUILDMCP_PLATFORM"
+  echo "  xcodebuildmcp_archive_sha256: $XCODEBUILDMCP_ARCHIVE_SHA256"
+  echo "  xcodebuildmcp_lock_sha256: $XCODEBUILDMCP_LOCK_SHA256"
+  echo "  xcodebuildmcp_runtime_destination: $XCODEBUILDMCP_RUNTIME_DESTINATION"
   if [[ -n "$APP_ICON_SOURCE" ]]; then
     echo "  app_icon_source: $APP_ICON_SOURCE"
   fi
@@ -513,6 +622,8 @@ if [[ "$DRY_RUN" == "1" ]]; then
       echo "dry-run: render branded installer icon into \"$RESOURCES_DIR/$APP_ICON_NAME\""
     fi
     echo "dry-run: validate --install-plugin-profile without changing Xcode home"
+    echo "dry-run: copy and validate the exact portable XcodeBuildMCP runtime"
+    echo "dry-run: validate --install-xcodebuildmcp-runtime without changing the shared runtime"
     echo "dry-run: validate --review-plugin-hooks without launching stock Codex"
   fi
   if [[ -n "$AGENT_RUNTIME" ]]; then
@@ -565,6 +676,12 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
     echo "error: failed to rewrite Stop to the packaged hook runtime" >&2
     exit 1
   }
+fi
+
+if [[ -n "$XCODEBUILDMCP_RUNTIME" ]]; then
+  mkdir -p "$(dirname "$XCODEBUILDMCP_RUNTIME_DESTINATION")"
+  cp -R -X "$XCODEBUILDMCP_RUNTIME" "$XCODEBUILDMCP_RUNTIME_DESTINATION"
+  xattr -c -r "$XCODEBUILDMCP_RUNTIME_DESTINATION"
 fi
 
 if [[ -n "$APP_ICON_SOURCE" ]]; then
@@ -721,6 +838,25 @@ else
 fi
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
+if [[ -n "$XCODEBUILDMCP_RUNTIME" ]]; then
+  PACKAGE_VALIDATION_RUNTIME_ROOT="$OUTPUT_DIR/package-validation-xcodebuildmcp-runtime"
+  rm -rf "$PACKAGE_VALIDATION_RUNTIME_ROOT"
+  "$APP_PATH/Contents/MacOS/$APP_EXECUTABLE" \
+    --install-xcodebuildmcp-runtime \
+    --dry-run \
+    --xcodebuildmcp-payload-root "$RESOURCES_DIR/XcodeBuildMCPRuntime" \
+    --xcodebuildmcp-version "$XCODEBUILDMCP_VERSION" \
+    --xcodebuildmcp-platform "$XCODEBUILDMCP_PLATFORM" \
+    --xcodebuildmcp-runtime-root "$PACKAGE_VALIDATION_RUNTIME_ROOT"
+  "$APP_PATH/Contents/MacOS/$APP_EXECUTABLE" \
+    --install-xcodebuildmcp-runtime \
+    --xcodebuildmcp-payload-root "$RESOURCES_DIR/XcodeBuildMCPRuntime" \
+    --xcodebuildmcp-version "$XCODEBUILDMCP_VERSION" \
+    --xcodebuildmcp-platform "$XCODEBUILDMCP_PLATFORM" \
+    --xcodebuildmcp-runtime-root "$PACKAGE_VALIDATION_RUNTIME_ROOT"
+  rm -rf "$PACKAGE_VALIDATION_RUNTIME_ROOT"
+fi
+
 if [[ -n "$PLUGIN_PROFILE" ]]; then
   "$APP_PATH/Contents/MacOS/$APP_EXECUTABLE" \
     --install-plugin-profile \
@@ -779,9 +915,12 @@ The installer backs up the prior profile and Xcode Codex config, enables the
 public plugin identity, and disables conflicting identities without deleting
 their caches. The completion dialog shows the exact rollback path and opens
 the explicit stock Codex hook-review flow in Terminal. It does not pre-trust
-either hook.
+either hook. It also installs the exact promoted XcodeBuildMCP portable runtime
+for Desktop/CLI plugin launchers without registering an MCP server in Xcode or
+replacing Xcode's native tools.
 
 For terminal automation from this mounted DMG directory:
+  ./$BUNDLE_NAME.app/Contents/MacOS/$APP_EXECUTABLE --install-xcodebuildmcp-runtime
   ./$BUNDLE_NAME.app/Contents/MacOS/$APP_EXECUTABLE --install-plugin-profile
 
 Restore the complete state from this mounted DMG directory with:
@@ -794,6 +933,8 @@ Source routing-core SHA-256: $SOURCE_PLUGIN_CORE_SHA256
 Embedded hook runtime: Node $HOOK_RUNTIME_VERSION
 Embedded hook runtime SHA-256: $FINAL_HOOK_RUNTIME_SHA256
 Hook runtime license SHA-256: $HOOK_RUNTIME_LICENSE_SHA256
+Embedded XcodeBuildMCP runtime: $XCODEBUILDMCP_VERSION ($XCODEBUILDMCP_PLATFORM)
+XcodeBuildMCP upstream archive SHA-256: $XCODEBUILDMCP_ARCHIVE_SHA256
 EOF
 fi
 if [[ -n "$AGENT_RUNTIME" ]]; then
@@ -885,6 +1026,16 @@ cat > "$PACKAGE_MANIFEST" <<EOF
       "license_relative_path": "hooks/runtime/LICENSE"
     }
   },
+  "xcodebuildmcp_runtime": {
+    "included": $([[ -n "$XCODEBUILDMCP_RUNTIME" ]] && printf true || printf false),
+    "version": "$(json_escape "$XCODEBUILDMCP_VERSION")",
+    "platform": "$(json_escape "$XCODEBUILDMCP_PLATFORM")",
+    "archive_sha256": "$XCODEBUILDMCP_ARCHIVE_SHA256",
+    "archive_size": "$XCODEBUILDMCP_ARCHIVE_SIZE",
+    "lock_sha256": "$XCODEBUILDMCP_LOCK_SHA256",
+    "relative_path": "XcodeBuildMCPRuntime/releases/$(json_escape "$XCODEBUILDMCP_VERSION")/$(json_escape "$XCODEBUILDMCP_PLATFORM")",
+    "xcode_registration": false
+  },
   "agent": {
     "included": $([[ -n "$AGENT_RUNTIME" ]] && printf true || printf false),
     "version": "$(json_escape "$AGENT_VERSION")",
@@ -914,11 +1065,16 @@ source_plugin_core_sha256: $SOURCE_PLUGIN_CORE_SHA256
 hook_runtime_version: $HOOK_RUNTIME_VERSION
 source_hook_runtime_sha256: $SOURCE_HOOK_RUNTIME_SHA256
 final_hook_runtime_sha256: $FINAL_HOOK_RUNTIME_SHA256
+xcodebuildmcp_version: $XCODEBUILDMCP_VERSION
+xcodebuildmcp_platform: $XCODEBUILDMCP_PLATFORM
+xcodebuildmcp_archive_sha256: $XCODEBUILDMCP_ARCHIVE_SHA256
+xcodebuildmcp_lock_sha256: $XCODEBUILDMCP_LOCK_SHA256
 
 Plugin-profile install command after mounting the DMG:
   Double-click "$BUNDLE_NAME.app" in the mounted DMG.
 
 Optional terminal automation from the mounted DMG directory:
+  "./$BUNDLE_NAME.app/Contents/MacOS/$APP_EXECUTABLE" --install-xcodebuildmcp-runtime
   "./$BUNDLE_NAME.app/Contents/MacOS/$APP_EXECUTABLE" --install-plugin-profile
 EOF
 fi
