@@ -11,7 +11,6 @@ struct Options {
     var installAgent = false
     var activateAgent = false
     var installPluginProfile = false
-    var installXcodeBuildMCPRuntime = false
     var reviewPluginHooks = false
     var restorePluginBackup: URL?
     var dryRun = false
@@ -25,10 +24,6 @@ struct Options {
     var pluginName = "apple-appdev-workflow"
     var xcodeCodexHome: URL?
     var pluginPayloadRoot: URL?
-    var xcodeBuildMCPVersion: String?
-    var xcodeBuildMCPPlatform: String?
-    var xcodeBuildMCPPayloadRoot: URL?
-    var xcodeBuildMCPRuntimeRoot: URL?
 }
 
 struct PluginIdentity {
@@ -40,19 +35,6 @@ struct HookProcessResult {
     let status: Int32
     let stdout: String
     let stderr: String
-}
-
-struct XcodeBuildMCPRuntimeIdentity {
-    let version: String
-    let platform: String
-    let archiveSHA256: String
-    let archiveSize: String
-}
-
-struct XcodeBuildMCPRuntimeInstallResult {
-    let destination: URL
-    let backup: URL?
-    let alreadyCurrent: Bool
 }
 
 struct PluginInstallState: Codable {
@@ -79,7 +61,6 @@ func usage() -> String {
     Usage:
       xcode-headless-installer --install-agent [options]
       xcode-headless-installer --install-plugin-profile [options]
-      xcode-headless-installer --install-xcodebuildmcp-runtime [options]
       xcode-headless-installer --review-plugin-hooks [options]
       xcode-headless-installer --restore-plugin-profile BACKUP_PATH [options]
 
@@ -104,26 +85,12 @@ func usage() -> String {
                                Defaults to Contents/Resources/XcodePluginProfile.
       --review-plugin-hooks    Open stock Codex's hook review for Xcode's Codex home.
 
-    Portable XcodeBuildMCP runtime options:
-      --install-xcodebuildmcp-runtime
-                               Install the embedded, exact portable CLI/MCP runtime.
-      --xcodebuildmcp-version VALUE
-                               Payload version under XcodeBuildMCPRuntime/releases.
-      --xcodebuildmcp-platform VALUE
-                               Payload platform, such as darwin-arm64.
-      --xcodebuildmcp-payload-root PATH
-                               Defaults to Contents/Resources/XcodeBuildMCPRuntime.
-      --xcodebuildmcp-runtime-root PATH
-                               Defaults to ~/Library/Application Support/Apple AppDev Workflow/runtime/xcodebuildmcp.
-
     Shared options:
       --dry-run                Print actions without mutating files.
       -h, --help               Show this help.
 
     Plugin-profile installation never changes Xcode's active Codex agent.
     The packaged profile contains its own hook runtime; no shell Node is used.
-    The portable XcodeBuildMCP runtime is shared by Desktop/CLI plugin launchers;
-    installing it does not register an MCP server in Xcode CodingAssistant.
     Install and restore transactionally preserve the prior profile and config.
     """
 }
@@ -157,9 +124,6 @@ func parseArguments(_ arguments: [String]) throws -> Options {
             index += 1
         case "--install-plugin-profile":
             options.installPluginProfile = true
-            index += 1
-        case "--install-xcodebuildmcp-runtime":
-            options.installXcodeBuildMCPRuntime = true
             index += 1
         case "--review-plugin-hooks":
             options.reviewPluginHooks = true
@@ -230,30 +194,6 @@ func parseArguments(_ arguments: [String]) throws -> Options {
             }
             options.pluginPayloadRoot = expandedDirectoryURL(arguments[index + 1])
             index += 2
-        case "--xcodebuildmcp-version":
-            guard index + 1 < arguments.count else {
-                throw InstallerError(description: "--xcodebuildmcp-version requires a value")
-            }
-            options.xcodeBuildMCPVersion = arguments[index + 1]
-            index += 2
-        case "--xcodebuildmcp-platform":
-            guard index + 1 < arguments.count else {
-                throw InstallerError(description: "--xcodebuildmcp-platform requires a value")
-            }
-            options.xcodeBuildMCPPlatform = arguments[index + 1]
-            index += 2
-        case "--xcodebuildmcp-payload-root":
-            guard index + 1 < arguments.count else {
-                throw InstallerError(description: "--xcodebuildmcp-payload-root requires a value")
-            }
-            options.xcodeBuildMCPPayloadRoot = expandedDirectoryURL(arguments[index + 1])
-            index += 2
-        case "--xcodebuildmcp-runtime-root":
-            guard index + 1 < arguments.count else {
-                throw InstallerError(description: "--xcodebuildmcp-runtime-root requires a value")
-            }
-            options.xcodeBuildMCPRuntimeRoot = expandedDirectoryURL(arguments[index + 1])
-            index += 2
         case "-h", "--help":
             print(usage())
             Darwin.exit(0)
@@ -315,11 +255,6 @@ func defaultAgentsRoot() -> URL {
 func defaultXcodeCodexHome() -> URL {
     URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
         .appendingPathComponent("Library/Developer/Xcode/CodingAssistant/codex", isDirectory: true)
-}
-
-func defaultXcodeBuildMCPRuntimeRoot() -> URL {
-    URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
-        .appendingPathComponent("Library/Application Support/Apple AppDev Workflow/runtime/xcodebuildmcp", isDirectory: true)
 }
 
 func hookTrustOnboardingRoot(_ xcodeCodexHome: URL) -> URL {
@@ -684,197 +619,6 @@ func rejectSymbolicLinks(in profile: URL) throws {
             )
         }
     }
-}
-
-func validateContainedSymbolicLinks(in payload: URL) throws {
-    let canonicalPayload = canonicalURL(payload, isDirectory: true)
-    guard let enumerator = FileManager.default.enumerator(
-        at: payload,
-        includingPropertiesForKeys: [.isSymbolicLinkKey],
-        options: [],
-        errorHandler: nil
-    ) else {
-        throw InstallerError(description: "could not enumerate runtime payload: \(payload.path)")
-    }
-    for case let entry as URL in enumerator {
-        let values = try entry.resourceValues(forKeys: [.isSymbolicLinkKey])
-        guard values.isSymbolicLink == true else {
-            continue
-        }
-        let resolved = canonicalURL(entry, isDirectory: false)
-        guard isContained(resolved, in: canonicalPayload) else {
-            throw InstallerError(
-                description: "runtime payload contains escaping symbolic link: \(entry.path)"
-            )
-        }
-    }
-}
-
-func readRuntimeReceipt(at payload: URL) throws -> [String: String] {
-    let receipt = payload.appendingPathComponent("runtime-receipt.env")
-    let text: String
-    do {
-        text = try String(contentsOf: receipt, encoding: .utf8)
-    } catch {
-        throw InstallerError(description: "runtime receipt is missing: \(receipt.path)")
-    }
-    var values: [String: String] = [:]
-    for rawLine in text.split(whereSeparator: { $0.isNewline }) {
-        let line = String(rawLine)
-        let pieces = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
-        guard pieces.count == 2 else {
-            throw InstallerError(description: "runtime receipt contains malformed content")
-        }
-        let key = String(pieces[0])
-        let value = String(pieces[1])
-        guard values[key] == nil, !value.isEmpty else {
-            throw InstallerError(description: "runtime receipt contains duplicate or empty fields")
-        }
-        values[key] = value
-    }
-    let required = Set([
-        "SCHEMA_VERSION", "RUNTIME", "VERSION", "PLATFORM", "ARCHIVE_SHA256", "ARCHIVE_SIZE",
-    ])
-    guard Set(values.keys) == required,
-          values["SCHEMA_VERSION"] == "1",
-          values["RUNTIME"] == "xcodebuildmcp",
-          values["ARCHIVE_SHA256"]?.range(
-            of: #"^[0-9a-f]{64}$"#,
-            options: .regularExpression
-          ) != nil,
-          values["ARCHIVE_SIZE"]?.range(
-            of: #"^[1-9][0-9]*$"#,
-            options: .regularExpression
-          ) != nil
-    else {
-        throw InstallerError(description: "runtime receipt does not satisfy the promoted schema")
-    }
-    return values
-}
-
-func runPortableXcodeBuildMCP(_ executable: URL, arguments: [String]) throws -> (Int32, String) {
-    let process = Process()
-    process.executableURL = executable
-    process.arguments = arguments
-    process.environment = [
-        "HOME": NSHomeDirectory(),
-        "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
-        "XCODEBUILDMCP_SENTRY_DISABLED": "true",
-        "SENTRY_DISABLED": "true",
-    ]
-    let output = Pipe()
-    process.standardOutput = output
-    process.standardError = output
-    try process.run()
-    process.waitUntilExit()
-    let data = output.fileHandleForReading.readDataToEndOfFile()
-    return (process.terminationStatus, String(data: data, encoding: .utf8) ?? "")
-}
-
-func validateXcodeBuildMCPRuntime(
-    at payload: URL,
-    expectedVersion: String? = nil,
-    expectedPlatform: String? = nil
-) throws -> XcodeBuildMCPRuntimeIdentity {
-    let fileManager = FileManager.default
-    let rootValues = try payload.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-    guard rootValues.isDirectory == true, rootValues.isSymbolicLink != true else {
-        throw InstallerError(description: "XcodeBuildMCP runtime root must be a real directory")
-    }
-    try validateContainedSymbolicLinks(in: payload)
-    let receipt = try readRuntimeReceipt(at: payload)
-    let version = try validatePathComponent(receipt["VERSION"] ?? "", label: "XcodeBuildMCP version")
-    let platform = try validatePathComponent(receipt["PLATFORM"] ?? "", label: "XcodeBuildMCP platform")
-    if let expectedVersion, expectedVersion != version {
-        throw InstallerError(
-            description: "XcodeBuildMCP runtime version mismatch: expected \(expectedVersion); found \(version)"
-        )
-    }
-    if let expectedPlatform, expectedPlatform != platform {
-        throw InstallerError(
-            description: "XcodeBuildMCP runtime platform mismatch: expected \(expectedPlatform); found \(platform)"
-        )
-    }
-
-    let lockURL = payload.appendingPathComponent("runtime-lock.json")
-    let lockObject: Any
-    do {
-        lockObject = try JSONSerialization.jsonObject(with: Data(contentsOf: lockURL))
-    } catch {
-        throw InstallerError(description: "XcodeBuildMCP runtime lock is missing or invalid")
-    }
-    guard let lock = lockObject as? [String: Any],
-          lock["schemaVersion"] as? Int == 1,
-          lock["runtime"] as? String == "xcodebuildmcp",
-          lock["channel"] as? String == "qualified-stable",
-          lock["resolvedFrom"] as? String == "latest",
-          let package = lock["package"] as? [String: Any],
-          package["version"] as? String == version,
-          let provenance = lock["provenance"] as? [String: Any],
-          provenance["repository"] as? String == "https://github.com/getsentry/XcodeBuildMCP",
-          let portable = lock["portable"] as? [String: Any],
-          let assets = portable["assets"] as? [String: Any],
-          let asset = assets[platform] as? [String: Any],
-          asset["sha256"] as? String == receipt["ARCHIVE_SHA256"],
-          String(describing: asset["size"] ?? "") == receipt["ARCHIVE_SIZE"],
-          let policy = lock["runtimePolicy"] as? [String: Any],
-          policy["installScripts"] as? String == "forbidden",
-          policy["ambientRuntimeFallback"] as? String == "forbidden",
-          let telemetry = policy["telemetryEnvironment"] as? [String: Any],
-          telemetry["XCODEBUILDMCP_SENTRY_DISABLED"] as? String == "true",
-          telemetry["SENTRY_DISABLED"] as? String == "true",
-          let workflows = policy["enabledWorkflows"] as? [String],
-          workflows.contains("session-management")
-    else {
-        throw InstallerError(description: "XcodeBuildMCP runtime lock does not match its receipt or policy")
-    }
-
-    for relativePath in [
-        "bin/xcodebuildmcp",
-        "bin/xcodebuildmcp-doctor",
-        "libexec/node-runtime",
-        "runtime.env",
-        "runtime-lock.json",
-    ] {
-        let file = payload.appendingPathComponent(relativePath)
-        guard (try? file.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else {
-            throw InstallerError(description: "XcodeBuildMCP runtime lacks \(relativePath)")
-        }
-    }
-    let binary = payload.appendingPathComponent("bin/xcodebuildmcp")
-    let doctor = payload.appendingPathComponent("bin/xcodebuildmcp-doctor")
-    let node = payload.appendingPathComponent("libexec/node-runtime")
-    guard fileManager.isExecutableFile(atPath: binary.path),
-          fileManager.isExecutableFile(atPath: doctor.path),
-          fileManager.isExecutableFile(atPath: node.path)
-    else {
-        throw InstallerError(description: "XcodeBuildMCP runtime executables are incomplete")
-    }
-    let (signatureStatus, signatureOutput) = try run(
-        "/usr/bin/codesign",
-        ["--verify", "--strict", node.path]
-    )
-    guard signatureStatus == 0 else {
-        throw InstallerError(
-            description: "XcodeBuildMCP bundled Node signature failed: "
-                + signatureOutput.trimmingCharacters(in: .whitespacesAndNewlines)
-        )
-    }
-    let (versionStatus, versionOutput) = try runPortableXcodeBuildMCP(
-        binary,
-        arguments: ["--version"]
-    )
-    guard versionStatus == 0,
-          versionOutput.trimmingCharacters(in: .whitespacesAndNewlines) == version
-    else {
-        throw InstallerError(description: "XcodeBuildMCP runtime binary version does not match receipt")
-    }
-    return XcodeBuildMCPRuntimeIdentity(
-        version: version,
-        platform: platform,
-        archiveSHA256: receipt["ARCHIVE_SHA256"] ?? "",
-        archiveSize: receipt["ARCHIVE_SIZE"] ?? ""
-    )
 }
 
 func validatePluginProfile(
@@ -1555,180 +1299,6 @@ func restorePluginProfile(
     describe("Xcode active Codex agent unchanged")
 }
 
-func installXcodeBuildMCPRuntime(
-    from payload: URL,
-    to runtimeRoot: URL,
-    force: Bool,
-    dryRun: Bool
-) throws -> XcodeBuildMCPRuntimeInstallResult {
-    let fileManager = FileManager.default
-    let identity = try validateXcodeBuildMCPRuntime(at: payload)
-    let destination = runtimeRoot
-        .appendingPathComponent("releases", isDirectory: true)
-        .appendingPathComponent(identity.version, isDirectory: true)
-        .appendingPathComponent(identity.platform, isDirectory: true)
-
-    if fileManager.fileExists(atPath: destination.path) {
-        do {
-            let existing = try validateXcodeBuildMCPRuntime(
-                at: destination,
-                expectedVersion: identity.version,
-                expectedPlatform: identity.platform
-            )
-            if existing.archiveSHA256 == identity.archiveSHA256,
-               existing.archiveSize == identity.archiveSize {
-                describe("plugin-owned XcodeBuildMCP runtime is already current: \(destination.path)")
-                return XcodeBuildMCPRuntimeInstallResult(
-                    destination: destination,
-                    backup: nil,
-                    alreadyCurrent: true
-                )
-            }
-        } catch {
-            guard force else {
-                throw InstallerError(
-                    description: "existing XcodeBuildMCP runtime is invalid; pass --force to preserve and replace it: \(error)"
-                )
-            }
-        }
-        guard force else {
-            throw InstallerError(
-                description: "existing XcodeBuildMCP runtime does not match the embedded promoted payload; pass --force to preserve and replace it"
-            )
-        }
-    }
-
-    let backup = fileManager.fileExists(atPath: destination.path)
-        ? try uniquePath(
-            runtimeRoot.appendingPathComponent("backups", isDirectory: true)
-                .appendingPathComponent(
-                    "\(identity.version)-\(identity.platform)-\(timestamp())",
-                    isDirectory: true
-                )
-        )
-        : nil
-    describe("install plugin-owned XcodeBuildMCP runtime: \(payload.path) -> \(destination.path)")
-    if let backup {
-        describe("preserve previous XcodeBuildMCP runtime: \(destination.path) -> \(backup.path)")
-    }
-    if dryRun {
-        return XcodeBuildMCPRuntimeInstallResult(
-            destination: destination,
-            backup: backup,
-            alreadyCurrent: false
-        )
-    }
-
-    try createOrValidateRealDirectory(
-        runtimeRoot,
-        withIntermediateDirectories: true,
-        label: "XcodeBuildMCP shared runtime root"
-    )
-    let releasesRoot = runtimeRoot.appendingPathComponent("releases", isDirectory: true)
-    let backupsRoot = runtimeRoot.appendingPathComponent("backups", isDirectory: true)
-    try createOrValidateRealDirectory(
-        releasesRoot,
-        withIntermediateDirectories: false,
-        label: "XcodeBuildMCP releases directory"
-    )
-    try createOrValidateRealDirectory(
-        backupsRoot,
-        withIntermediateDirectories: false,
-        label: "XcodeBuildMCP backups directory"
-    )
-    let stagingRoot = runtimeRoot.appendingPathComponent(
-        ".install-\(UUID().uuidString.lowercased())",
-        isDirectory: true
-    )
-    let stagingPayload = stagingRoot.appendingPathComponent("payload", isDirectory: true)
-    try fileManager.createDirectory(at: stagingRoot, withIntermediateDirectories: false)
-    defer {
-        if fileManager.fileExists(atPath: stagingRoot.path) {
-            try? fileManager.removeItem(at: stagingRoot)
-        }
-    }
-    try copyDirectory(from: payload, to: stagingPayload)
-    _ = try validateXcodeBuildMCPRuntime(
-        at: stagingPayload,
-        expectedVersion: identity.version,
-        expectedPlatform: identity.platform
-    )
-    try fileManager.createDirectory(
-        at: destination.deletingLastPathComponent(),
-        withIntermediateDirectories: true
-    )
-    if let backup {
-        try fileManager.moveItem(at: destination, to: backup)
-    }
-    do {
-        try fileManager.moveItem(at: stagingPayload, to: destination)
-        _ = try validateXcodeBuildMCPRuntime(
-            at: destination,
-            expectedVersion: identity.version,
-            expectedPlatform: identity.platform
-        )
-    } catch {
-        let installError = error
-        if fileManager.fileExists(atPath: destination.path) {
-            try? fileManager.removeItem(at: destination)
-        }
-        if let backup,
-           fileManager.fileExists(atPath: backup.path),
-           !fileManager.fileExists(atPath: destination.path) {
-            do {
-                try fileManager.moveItem(at: backup, to: destination)
-            } catch {
-                throw InstallerError(
-                    description: "XcodeBuildMCP runtime install failed: \(installError); rollback failed: \(error); backup: \(backup.path)"
-                )
-            }
-        }
-        throw installError
-    }
-    describe("installed plugin-owned XcodeBuildMCP runtime: \(destination.path)")
-    describe("Xcode CodingAssistant MCP ownership unchanged")
-    return XcodeBuildMCPRuntimeInstallResult(
-        destination: destination,
-        backup: backup,
-        alreadyCurrent: false
-    )
-}
-
-func installPackagedXcodeBuildMCPRuntime(options: Options) throws -> XcodeBuildMCPRuntimeInstallResult {
-    let payloadRoot = try options.xcodeBuildMCPPayloadRoot
-        ?? defaultResourceDirectory("XcodeBuildMCPRuntime")
-    let releasesRoot = payloadRoot.appendingPathComponent("releases", isDirectory: true)
-    let version = try resolveOnlyDirectory(
-        root: releasesRoot,
-        requested: options.xcodeBuildMCPVersion,
-        label: "--xcodebuildmcp-version"
-    )
-    let versionRoot = releasesRoot.appendingPathComponent(version, isDirectory: true)
-    let platform = try resolveOnlyDirectory(
-        root: versionRoot,
-        requested: options.xcodeBuildMCPPlatform,
-        label: "--xcodebuildmcp-platform"
-    )
-    let payload = versionRoot.appendingPathComponent(platform, isDirectory: true)
-    _ = try validateXcodeBuildMCPRuntime(
-        at: payload,
-        expectedVersion: version,
-        expectedPlatform: platform
-    )
-    let runtimeRoot = options.xcodeBuildMCPRuntimeRoot ?? defaultXcodeBuildMCPRuntimeRoot()
-    describe("xcodebuildmcp_payload_root=\(payloadRoot.path)")
-    describe("xcodebuildmcp_runtime_root=\(runtimeRoot.path)")
-    describe("xcodebuildmcp_version=\(version)")
-    describe("xcodebuildmcp_platform=\(platform)")
-    describe("dry_run=\(options.dryRun)")
-    return try installXcodeBuildMCPRuntime(
-        from: payload,
-        to: runtimeRoot,
-        force: options.force,
-        dryRun: options.dryRun
-    )
-}
-
 func installAgent(options: Options) throws {
     let payloadRoot = try options.payloadRoot ?? defaultResourceDirectory("XcodeAgent")
     let agentsRoot = options.agentsRoot ?? defaultAgentsRoot()
@@ -1913,7 +1483,7 @@ func runInteractiveInstaller() -> Int32 {
         information: """
         Quit Xcode before continuing.
 
-        This installs and enables the xcode-headless plugin profile in Xcode's separate Codex home and installs the exact promoted XcodeBuildMCP portable runtime for Desktop/CLI plugin fallback. Neither payload depends on Homebrew, Malt, or your shell PATH. The portable runtime is not registered inside Xcode, does not replace native xcode-tools, and does not replace Xcode's Codex agent or pre-trust either lifecycle hook: UserPromptSubmit or Stop.
+        This installs and enables the xcode-headless plugin profile in Xcode's separate Codex home. The profile carries its own signed hook runtime, so it does not depend on Homebrew, Malt, or your shell PATH. It does not replace Xcode's Codex agent or pre-trust either lifecycle hook: UserPromptSubmit or Stop.
         """,
         style: .informational,
         primaryButton: "Install",
@@ -1924,32 +1494,19 @@ func runInteractiveInstaller() -> Int32 {
     }
 
     do {
-        var runtimeOptions = Options()
-        runtimeOptions.installXcodeBuildMCPRuntime = true
-        let runtimeResult = try installPackagedXcodeBuildMCPRuntime(options: runtimeOptions)
         var options = Options()
         options.installPluginProfile = true
         let backup = try installPackagedPluginProfile(options: options)
         let backupPath = backup?.path ?? "No prior state required a rollback backup."
-        let runtimeBackupPath = runtimeResult.backup?.path
-            ?? (runtimeResult.alreadyCurrent
-                ? "The exact portable runtime was already installed."
-                : "No prior portable runtime required a rollback backup.")
         let completion = presentAlert(
             message: "Installation complete",
             information: """
-            Apple AppDev Workflow is enabled for Xcode. Both lifecycle hooks passed an automatic sanitized-PATH postflight. The exact plugin-owned XcodeBuildMCP runtime is available to Desktop/CLI launchers at:
-            \(runtimeResult.destination.path)
-
-            Xcode still owns native tool execution; no Xcode MCP registration or active Codex agent was changed.
+            Apple AppDev Workflow is enabled for Xcode. Both lifecycle hooks passed an automatic sanitized-PATH postflight. Xcode's active Codex agent was not changed.
 
             Before opening Xcode, review and trust each lifecycle hook: UserPromptSubmit and Stop. Review Hooks opens Xcode's stock Codex in Terminal. Stock Codex may first ask you to trust its dedicated empty hook-review workspace; that trust does not apply to your home or projects. Inspect each hook command and source before trusting it. If startup hook review is not shown, enter /hooks.
 
             Rollback backup:
             \(backupPath)
-
-            Portable runtime rollback:
-            \(runtimeBackupPath)
             """,
             style: .informational,
             primaryButton: "Review Hooks",
@@ -1999,7 +1556,6 @@ func main() -> Int32 {
         let modeCount = [
             options.installAgent,
             options.installPluginProfile,
-            options.installXcodeBuildMCPRuntime,
             options.reviewPluginHooks,
             options.restorePluginBackup != nil,
         ].filter { $0 }.count
@@ -2013,8 +1569,6 @@ func main() -> Int32 {
 
         if options.installAgent {
             try installAgent(options: options)
-        } else if options.installXcodeBuildMCPRuntime {
-            _ = try installPackagedXcodeBuildMCPRuntime(options: options)
         } else if options.installPluginProfile {
             _ = try installPackagedPluginProfile(options: options)
         } else if options.reviewPluginHooks {

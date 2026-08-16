@@ -1,12 +1,10 @@
 # Xcode Headless Installer
 
 This tool packages Xcode CodingAssistant host assets as a signed macOS
-installer app inside a signed, notarizable DMG. It supports three independent
+installer app inside a signed, notarizable DMG. It supports two independent
 payloads:
 
 - the rendered `xcode-headless` plugin profile; and
-- the workflow-qualified portable XcodeBuildMCP runtime paired with that
-  profile; and
 - an optional Codex primary-agent canary.
 
 The public Apple workflow plugin uses the first path. Marketplace installation
@@ -15,10 +13,11 @@ does not own Xcode CodingAssistant's separate Codex home. The Xcode profile is
 therefore a companion distribution envelope, not a Marketplace post-install
 side effect.
 
-The portable XcodeBuildMCP payload is installed into the workflow's shared
-Application Support runtime root for ordinary plugin and CLI use. The installer
-does not add it to Xcode's CodingAssistant MCP configuration. Xcode continues
-to own the native `xcode-tools` bridge, avoiding duplicate tool owners.
+This installer does not carry or provision XcodeBuildMCP, Sosumi, or a Memory
+MCP. Those ordinary-host capabilities belong to the Marketplace plugin and the
+user's Codex home; Xcode keeps its native `xcode-tools` provider. The companion
+only installs the self-contained Xcode profile and hook runtime needed for
+deterministic routing and final-output enforcement.
 
 ## Package The Plugin Profile
 
@@ -45,18 +44,6 @@ archive SHA-256, extracted executable SHA-256, and license SHA-256 in
 `provenance.json`. The packager rejects symlinks and runtimes with non-system
 dynamic-library dependencies.
 
-Stage XcodeBuildMCP with the matching plugin source's
-`codex-cli/setup-xcodebuildmcp-runtime.sh`. Pass the resulting exact release
-directory—not `npx`, a global Node installation, or a Malt wrapper—to the
-packager. The release directory contains a promoted receipt and lock; the
-packager rechecks its exact version, platform, archive digest, policy, bundled
-Node signature, and executable version before embedding it. For example on an
-Apple silicon host:
-
-```bash
-XCODEBUILDMCP_RELEASE="$HOME/Library/Application Support/Apple AppDev Workflow/runtime/xcodebuildmcp/releases/2.7.0/darwin-arm64"
-```
-
 Inspect the package plan without creating an app or DMG:
 
 ```bash
@@ -67,7 +54,6 @@ tools/xcode-headless-installer/scripts/package_dmg.sh \
   --build 2 \
   --hook-runtime /tmp/apple-appdev-hook-runtime-v24.19.0/node \
   --hook-runtime-license /tmp/apple-appdev-hook-runtime-v24.19.0/LICENSE \
-  --xcodebuildmcp-runtime "$XCODEBUILDMCP_RELEASE" \
   --output-dir /tmp/apple-appdev-xcode-plugin-installer \
   --dry-run
 ```
@@ -84,7 +70,6 @@ tools/xcode-headless-installer/scripts/package_dmg.sh \
   --build 2 \
   --hook-runtime /tmp/apple-appdev-hook-runtime-v24.19.0/node \
   --hook-runtime-license /tmp/apple-appdev-hook-runtime-v24.19.0/LICENSE \
-  --xcodebuildmcp-runtime "$XCODEBUILDMCP_RELEASE" \
   --output-dir /tmp/apple-appdev-xcode-plugin-installer \
   --release \
   --notarize \
@@ -97,9 +82,7 @@ present. A successful package run emits a sidecar JSON manifest with the final
 DMG SHA-256, installer-binary
 SHA-256, exact source commit, clean/dirty state, signing mode, notarization
 status, plugin manifest hash, source and embedded routing-core hashes, and
-source/final hook-runtime hashes. It also records the portable runtime's exact
-version, platform, upstream archive digest and size, and runtime-lock digest.
-Developer ID release
+source/final hook-runtime hashes. Developer ID release
 packaging refuses a dirty or non-git source checkout. A notarized run also
 keeps notarytool's JSON result beside the DMG and records its accepted
 submission ID in the sidecar manifest.
@@ -119,20 +102,11 @@ separate Codex home. If stock Codex asks for directory trust first, the path is
 the dedicated empty `.tmp/hook-trust-onboarding/workspace` under that home—not
 the user's home or an application project.
 
-The same interactive flow first validates and installs the exact
-portable XcodeBuildMCP release into the shared Application Support runtime.
-An already-current release is left untouched. A mismatched or invalid release
-is never overwritten implicitly; explicit `--force` preserves it under the
-runtime's `backups` directory before replacement. This step does not alter
-Xcode MCP registration.
-
 For terminal automation, change into the mounted DMG directory and invoke the
 same signed app executable explicitly:
 
 ```bash
 cd "/Volumes/Apple AppDev Xcode Headless Installer"
-./AppleAppDevXcodeHeadlessInstaller.app/Contents/MacOS/xcode-headless-installer \
-  --install-xcodebuildmcp-runtime
 ./AppleAppDevXcodeHeadlessInstaller.app/Contents/MacOS/xcode-headless-installer \
   --install-plugin-profile
 ```
@@ -271,8 +245,6 @@ and only then signs the installer app.
 - The `xcode-headless` manifest must omit plugin-managed `mcpServers` and retired
   `routerSelection`; Xcode owns the native tool surface while the hook retains
   deterministic workflow ownership.
-- The separately embedded portable XcodeBuildMCP runtime must remain unregistered
-  in Xcode. Its presence in the DMG does not change Xcode's native bridge owner.
 - For Xcode 27 with Codex CLI `0.145.0` or newer, qualification contract v3
   preserves v2's exact neutral `workspace-extension:xcworkspace` reason and
   adds exact authored-prompt provenance for natural macOS and Swift Package
