@@ -384,6 +384,7 @@ if [[ -n "$PLUGIN_PROFILE" ]]; then
   fi
   CORE_FILES=(
     "hooks/hooks.json"
+    "hooks/apple_hook.py"
     "hooks/apple_router.mjs"
     "hooks/apple_contract_guard.mjs"
     "routing/router-policy.json"
