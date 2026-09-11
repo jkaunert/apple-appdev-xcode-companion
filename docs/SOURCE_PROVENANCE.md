@@ -16,25 +16,29 @@ matrix report will be added here after packaging. Historical `0.2.0` and
 
 ### Candidate package built from the release-train topics
 
-The first signed beta candidate was built from companion commit
-`9e521241edf88afb0909dbcc5c40117ea8c3f8c2` and a rendered profile from plugin
-topic commit `048d4d4c43a13eaad1465a4d7c7248f4d4a91a18`. It is a candidate only;
-the publication package must be rebuilt after the plugin topic is merged to
-private `main`.
+The superseded first candidate was built from companion commit
+`9e521241edf88afb0909dbcc5c40117ea8c3f8c2`. After the routing-core hash fix,
+the current signed beta candidate was rebuilt from companion commit
+`e7206289915fdb8c5bbde6a9167d91987a2f994e` and a rendered profile from plugin
+topic commit `048d4d4c43a13eaad1465a4d7c7248f4d4a91a18`. It is still a candidate
+only; the publication package must be rebuilt after the plugin topic is merged
+to private `main`.
 
 ```text
 app version: 0.2.2-beta.1
 app build: 1
 DMG: AppleAppDevXcodeHeadlessInstaller-0.2.2-beta.1.dmg
-DMG SHA-256: 8779244b98166d2f3e0f87aa4ed7542fa263bf1360a332e85fb76a87d9ddb50f
-notarization submission: d80d7cd9-3b1f-403b-b861-2885476a68de
+DMG SHA-256: e514b3f649dd4e02a20c25793f5abf100e80170808525ceb481b7c2ed776a8e1
+sidecar SHA-256: 3164b9e65bad6b5c75a0133783f4dd1c370ef1dbed51e08d56e7eb19a1e7af03
+notarization submission: a21cbeab-1b03-4573-8b3b-1e2c0e48d2f4
 plugin version: 0.2.2-beta.1
 plugin manifest SHA-256: 4ea72ae864c4cf5223af791e9ea238ed758458c267f6ec7dfc48f37c7cfb2aee
-source routing core SHA-256: 009ebaa65e54bff9fd5068f6e537481c4f311bee646306d31f3b3cf0a5ae3cd0
-embedded routing core SHA-256: cfcebf9676cbfe5badd36c2a3661ebeaa71436b4db5a8373663da211eeab262a
+source routing core SHA-256: 43e1b81e86ee367f971dba8d26b35260c0f4d1b0576295bed1960cd30d3fcf0f
+embedded routing core SHA-256: f28533e2bf24bb986651910eb714e6531cfd1ee77e0a6b5e8e66f201e686d382
 Node runtime: v24.19.0
 Node executable SHA-256: 27db838bb204ef7c21df2931f5656e4c8fb32e6e947f363a402b49714d32b5b1
 Node license SHA-256: 148eacf7863ef4329224a29398623077200a27194aa075569faf4a0a85566ca5
+signed embedded Node SHA-256: 17515fb6fd1bb1dae5b3f502feea24405af6024ebceaf4450c496d65c86b5ab9
 ```
 
 ## Initial extraction

@@ -27,13 +27,14 @@ remain separate evidence and cannot qualify this changed beta payload.
 
 ## Candidate package evidence
 
-The first candidate package was built from companion commit
-`9e521241edf88afb0909dbcc5c40117ea8c3f8c2` with a profile rendered from plugin
+The current candidate package was rebuilt from companion commit
+`e7206289915fdb8c5bbde6a9167d91987a2f994e` with a profile rendered from plugin
 topic commit `048d4d4c43a13eaad1465a4d7c7248f4d4a91a18`:
 
 ```text
-DMG SHA-256: 8779244b98166d2f3e0f87aa4ed7542fa263bf1360a332e85fb76a87d9ddb50f
-notarization submission: d80d7cd9-3b1f-403b-b861-2885476a68de
+DMG SHA-256: e514b3f649dd4e02a20c25793f5abf100e80170808525ceb481b7c2ed776a8e1
+sidecar SHA-256: 3164b9e65bad6b5c75a0133783f4dd1c370ef1dbed51e08d56e7eb19a1e7af03
+notarization submission: a21cbeab-1b03-4573-8b3b-1e2c0e48d2f4
 Node runtime: v24.19.0
 ```
 
