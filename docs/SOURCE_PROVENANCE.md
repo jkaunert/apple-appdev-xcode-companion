@@ -14,6 +14,29 @@ license hashes, DMG checksum, notarization submission, and fresh Xcode Beta 5
 matrix report will be added here after packaging. Historical `0.2.0` and
 `0.2.1` records below remain immutable and cannot qualify this changed payload.
 
+### Candidate package built from the release-train topics
+
+The first signed beta candidate was built from companion commit
+`9e521241edf88afb0909dbcc5c40117ea8c3f8c2` and a rendered profile from plugin
+topic commit `048d4d4c43a13eaad1465a4d7c7248f4d4a91a18`. It is a candidate only;
+the publication package must be rebuilt after the plugin topic is merged to
+private `main`.
+
+```text
+app version: 0.2.2-beta.1
+app build: 1
+DMG: AppleAppDevXcodeHeadlessInstaller-0.2.2-beta.1.dmg
+DMG SHA-256: 8779244b98166d2f3e0f87aa4ed7542fa263bf1360a332e85fb76a87d9ddb50f
+notarization submission: d80d7cd9-3b1f-403b-b861-2885476a68de
+plugin version: 0.2.2-beta.1
+plugin manifest SHA-256: 4ea72ae864c4cf5223af791e9ea238ed758458c267f6ec7dfc48f37c7cfb2aee
+source routing core SHA-256: 009ebaa65e54bff9fd5068f6e537481c4f311bee646306d31f3b3cf0a5ae3cd0
+embedded routing core SHA-256: cfcebf9676cbfe5badd36c2a3661ebeaa71436b4db5a8373663da211eeab262a
+Node runtime: v24.19.0
+Node executable SHA-256: 27db838bb204ef7c21df2931f5656e4c8fb32e6e947f363a402b49714d32b5b1
+Node license SHA-256: 148eacf7863ef4329224a29398623077200a27194aa075569faf4a0a85566ca5
+```
+
 ## Initial extraction
 
 The initial companion source was mechanically extracted from the private Apple
