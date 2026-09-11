@@ -1,5 +1,25 @@
 # Compatibility Contract
 
+## Planned 0.2.2-beta.1 paired contract
+
+The release-train branch prepares a new hook-only Xcode companion paired with
+Marketplace plugin `0.2.2-beta.1`:
+
+```text
+plugin: apple-appdev-workflow
+plugin version: 0.2.2-beta.1
+marketplace source: apple-developer-tools
+companion app version: 0.2.2-beta.1
+companion app build: 1
+qualification contract: 3
+```
+
+The final beta contract is intentionally incomplete until the exact private
+plugin `main` SHA, rendered profile hashes, official Node runtime hashes,
+Developer ID/notarization evidence, and fresh Xcode 27 Beta 5 matrix are
+recorded. The companion remains hook-only: Marketplace MCP ownership stays in
+the plugin and Xcode keeps native `xcode-tools` ownership.
+
 The companion `0.2.1` build-3 release contract is pinned to this Xcode profile
 identity:
 

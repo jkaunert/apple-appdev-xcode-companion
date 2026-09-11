@@ -1,5 +1,19 @@
 # Source Provenance
 
+## Companion 0.2.2-beta.1 release train
+
+This branch prepares the hook-only companion beta paired with the private
+Apple AppDev Workflow `0.2.2-beta.1` Marketplace source. The final package
+must embed an `xcode-headless` profile rendered from the exact merged private
+`main` SHA, then rewrite only the two lifecycle-hook commands to the pinned
+official Node.js LTS runtime. It must not bundle XcodeBuildMCP, Sosumi, Memory
+MCP, or the private plugin repository history.
+
+The beta source commit, rendered-profile hashes, Node archive/executable and
+license hashes, DMG checksum, notarization submission, and fresh Xcode Beta 5
+matrix report will be added here after packaging. Historical `0.2.0` and
+`0.2.1` records below remain immutable and cannot qualify this changed payload.
+
 ## Initial extraction
 
 The initial companion source was mechanically extracted from the private Apple

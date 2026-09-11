@@ -10,7 +10,9 @@ CodingAssistant Codex home without changing Xcode's active Codex agent.
 
 ## Current status
 
-- public companion release: [`v0.2.0`](https://github.com/jkaunert/apple-appdev-xcode-companion/releases/tag/v0.2.0)
+- current release-train branch: `work/companion-0.2.2-beta.1-20260911`
+- planned paired beta: `0.2.2-beta.1` (not yet tagged, signed, or published)
+- public companion release: [`v0.2.1`](https://github.com/jkaunert/apple-appdev-xcode-companion/releases/tag/v0.2.1)
 - source imported from private Apple AppDev Workflow commit
   `c30409e917a5bcdb02010c0b78b4971c2b3fa42a`
 - embedded dual-hook profile pinned to private Apple AppDev Workflow commit
@@ -29,16 +31,16 @@ CodingAssistant Codex home without changing Xcode's active Codex agent.
   [0.2.0 release packet](docs/RELEASE_PACKET_0.2.0.md)
 - the public plugin repository was held unchanged throughout the Build Week
   judging window and remains outside companion release scope
-- the qualified build-3 companion maintenance candidate keeps application version
-  `0.2.1` and embeds plugin profile `0.2.1`, rendered from private source
+- the superseded build-3 companion maintenance candidate kept application version
+  `0.2.1` and embedded plugin profile `0.2.1`, rendered from private source
   `835435901c5ac46d5d45176e16d8c2e0f568d886`; it adds authored Swift Package
   routing under qualification contract v3, ranks that specific domain above
   generic `xcode`, and retains the neutral Xcode workspace fallback; the exact
   notarized build passed explicit hook review and all 11 Xcode Beta 5 cases
-- companion publication is valid only when tag `v0.2.1` targets exact package
-  source commit `d6688435df3f63ebea68a8d6ed2d289c19975c75` and the public DMG and
-  sidecars match the qualified hashes; it does not publish or modify the paired
-  public plugin repository
+- the historical `v0.2.1` publication targets exact package source commit
+  `d6688435df3f63ebea68a8d6ed2d289c19975c75`; the new beta must use a new clean
+  companion commit, exact paired plugin profile, and fresh DMG/sidecar hashes
+  without mutating the public plugin until its private-source gate passes
 
 See [source provenance](docs/SOURCE_PROVENANCE.md) for the exact extraction
 boundary and [compatibility contract](docs/COMPATIBILITY.md) for the pinned
@@ -98,9 +100,9 @@ tools/xcode-headless-installer/scripts/fetch_hook_runtime.sh \
 
 tools/xcode-headless-installer/scripts/package_dmg.sh \
   --plugin-profile /path/to/rendered/xcode-headless \
-  --plugin-version 0.2.1 \
-  --version 0.2.1 \
-  --build 3 \
+  --plugin-version 0.2.2-beta.1 \
+  --version 0.2.2-beta.1 \
+  --build 1 \
   --hook-runtime /tmp/apple-appdev-hook-runtime-v24.19.0/node \
   --hook-runtime-license /tmp/apple-appdev-hook-runtime-v24.19.0/LICENSE \
   --output-dir /tmp/apple-appdev-xcode-companion \
