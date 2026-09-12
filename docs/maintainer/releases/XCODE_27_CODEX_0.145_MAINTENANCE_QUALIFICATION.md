@@ -70,7 +70,7 @@ VoiceOver enabled. The installer replaced the prior profile only after
 creating this rollback snapshot:
 
 ```text
-/Users/joshuakaunert/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.1-plugin-install-20260812T103502Z
+<private-local-path>shuakaunert/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.1-plugin-install-20260812T103502Z
 ```
 
 `Review Hooks` opened the Xcode-shipped `codex-cli 0.145.0`. Stock Codex showed
@@ -95,7 +95,7 @@ the clipboard, and VoiceOver was restored to off.
 The canonical Xcode 27 Beta 5 matrix passed all 11 cases against the installed
 build-3 profile while retaining the green 12-case stock Desktop prerequisite.
 The two new natural-language turns share stock Xcode session
-`019ff591-f0f2-7343-b037-4c821eb74b80` and persisted conversation
+`<redacted-session-id>` and persisted conversation
 `5AE9BD1C-5B2F-4548-9CA6-EDE9DE13F6FD`:
 
 ```text
@@ -103,14 +103,14 @@ macos-natural: orchestrator-led / apple-appdev-workflow:apple-app-orchestrator /
 swift-package-natural: orchestrator-led / apple-appdev-workflow:apple-app-orchestrator / applied / prompt-signal:swift package
 ```
 
-The scorer attributed the accepted turns to Xcode PID `19425` and its
+The scorer attributed the accepted turns to Xcode PID <redacted-pid> and its
 Xcode-shipped Codex app-server, rejected carry-backed attribution, and reported
 `xcodeGate=passed` with no errors.
 
 ```text
-manifest: /Users/joshuakaunert/.codex-fork/quarantine/v021-swift-package-provenance-20260812/xcode-v3-live-build3/xcode-parity-manifest-27A5237l-v3-build3.json
+manifest: <private-local-path>shuakaunert/.codex-fork/quarantine/v021-swift-package-provenance-20260812/xcode-v3-live-build3/xcode-parity-manifest-27A5237l-v3-build3.json
 manifest SHA-256: b3f78a62133f04d763b988c7955ca7d7d52ce6d7f2a606c5de1f851da5dab410
-report: /Users/joshuakaunert/.codex-fork/quarantine/v021-swift-package-provenance-20260812/xcode-v3-live-build3/xcode-parity-report-27A5237l-v3-build3.json
+report: <private-local-path>shuakaunert/.codex-fork/quarantine/v021-swift-package-provenance-20260812/xcode-v3-live-build3/xcode-parity-report-27A5237l-v3-build3.json
 report SHA-256: ebc8ea77421adfc7703522a72dffc879dc186c883caae9331a5806116de8bcf0
 ```
 
@@ -207,7 +207,7 @@ VoiceOver enabled. The completion alert exposed `Review Hooks`, `Copy Rollback
 Path`, and `Done`, and preserved this rollback snapshot:
 
 ```text
-/Users/joshuakaunert/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.0-plugin-install-20260811T105553Z
+<private-local-path>shuakaunert/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.0-plugin-install-20260811T105553Z
 ```
 
 `Review Hooks` launched the Xcode-shipped Codex `0.145.0` agent with its process
@@ -248,9 +248,9 @@ retained the 12-case stock Desktop prerequisite, and reported
 `xcodeGate=passed`:
 
 ```text
-manifest: /Users/joshuakaunert/.codex-fork/quarantine/stock-xcode-hook-router-live-parity-beta5-trust-bfd17f6-20260811/probe-xcode-01/xcode-parity-manifest-27A5237l-v2-trust-bfd17f6-canonical.json
+manifest: <private-local-path>shuakaunert/.codex-fork/quarantine/stock-xcode-hook-router-live-parity-beta5-trust-bfd17f6-20260811/probe-xcode-01/xcode-parity-manifest-27A5237l-v2-trust-bfd17f6-canonical.json
 manifest SHA-256: c5fc2022b2ef1c227fc2233007998569d7cd9764d0a9566ea47fab3a9cdbbbbb
-report: /Users/joshuakaunert/.codex-fork/quarantine/stock-xcode-hook-router-live-parity-beta5-trust-bfd17f6-20260811/probe-xcode-01/xcode-parity-report-27A5237l-v2-trust-bfd17f6-canonical.json
+report: <private-local-path>shuakaunert/.codex-fork/quarantine/stock-xcode-hook-router-live-parity-beta5-trust-bfd17f6-20260811/probe-xcode-01/xcode-parity-report-27A5237l-v2-trust-bfd17f6-canonical.json
 report SHA-256: 23a879e437f39f9b682e4b303e8660b6e01bd51c08f77c900016e41add31f944
 ```
 
