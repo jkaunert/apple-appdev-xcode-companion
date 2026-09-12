@@ -36,7 +36,7 @@ PLUGIN_VERSION = "0.2.2-beta.2"
 PLUGIN_SOURCE = "apple-developer-tools"
 LOCAL_PLUGIN_SOURCE = "LocalAppleWorkflow"
 APP_VERSION = "0.2.2-beta.2"
-APP_BUILD = "1"
+APP_BUILD = "2"
 REQUIRED_PROFILE_FILES = (
     "hooks/apple_hook.py",
     "hooks/apple_router.mjs",
