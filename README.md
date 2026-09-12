@@ -1,116 +1,59 @@
 # Apple AppDev Xcode Companion
 
-Public source and release home for the explicit Xcode CodingAssistant
-provisioning envelope used by Apple AppDev Workflow.
+Apple AppDev Xcode Companion is the optional, signed companion for using Apple
+AppDev Workflow inside Xcode CodingAssistant.
 
-The Codex Marketplace plugin and this companion are separate distributions.
-The Marketplace plugin installs into ordinary Codex Desktop and CLI homes. The
-companion installs the matching `xcode-headless` profile into Xcode's separate
-CodingAssistant Codex home without changing Xcode's active Codex agent.
+It installs the matching hook-native workflow profile into Xcode’s separate
+Codex home. The Marketplace plugin remains the normal Codex Desktop and CLI
+distribution.
 
-## Current status
+## Download
 
-- current release-train branch: `work/companion-0.2.2-beta.1-20260911`
-- paired beta: `0.2.2-beta.1` (release assets are published only after the final
-  source, package, and Xcode gates pass)
-- qualified private plugin source: `Always-Making-Stuff/orchestral` `main` at
-  `722fda0943993fe2506e3a32dd6b12bbd1c92511` (release-evidence merge `7fd1ae9`)
-- paired public plugin release: [`v0.2.2-beta.1`](https://github.com/jkaunert/apple-appdev-workflow/releases/tag/v0.2.2-beta.1)
-- public plugin distribution commit: `9c45882623a8d48a64011df03a0d498e47a0ffd0`
-- public companion release: [`v0.2.1`](https://github.com/jkaunert/apple-appdev-xcode-companion/releases/tag/v0.2.1)
-- historical source extraction began from private Apple AppDev Workflow commit
-  `c30409e917a5bcdb02010c0b78b4971c2b3fa42a`; it does not qualify this beta
-- the signed, notarized, and published build-4 companion source commit
-  `d8f83d1fa0d661aa1c01a1138c0e156bf4929d5d`, qualified on macOS 15.7.8
-  and macOS 26.5.1 after exact-DMG transactional installation, a VoiceOver
-  installation pass, a fresh Xcode-host smoke, and a 9/9 preserved Xcode host
-  matrix rescore
-- exact artifact hashes, hook trust state, and stock-host evidence are in
-  [release qualification](docs/RELEASE_QUALIFICATION.md)
-- final beta DMG, sidecar, notary result, and exact source/profile hashes will
-  be recorded in [the beta release packet](docs/RELEASE_PACKET_0.2.2-BETA.1.md)
-- the verified tag, asset, and publication record is in the
-  [0.2.0 release packet](docs/RELEASE_PACKET_0.2.0.md)
-- the public plugin repository was held unchanged throughout the Build Week
-  judging window; the beta now uses its post-judging `v0.2.2-beta.1` release
-- the superseded build-3 companion maintenance candidate kept application version
-  `0.2.1` and embedded plugin profile `0.2.1`, rendered from private source
-  `835435901c5ac46d5d45176e16d8c2e0f568d886`; it adds authored Swift Package
-  routing under qualification contract v3, ranks that specific domain above
-  generic `xcode`, and retains the neutral Xcode workspace fallback; the exact
-  notarized build passed explicit hook review and all 11 Xcode Beta 5 cases
-- the historical `v0.2.1` publication targets exact package source commit
-  `d6688435df3f63ebea68a8d6ed2d289c19975c75`; the new beta must use a new clean
-  companion commit, exact paired plugin profile, and fresh DMG/sidecar hashes
-  (the public plugin source gate has now passed)
+Download the current prerelease from the
+[GitHub releases page](https://github.com/jkaunert/apple-appdev-xcode-companion/releases).
 
-See [source provenance](docs/SOURCE_PROVENANCE.md) for the exact extraction
-boundary and [compatibility contract](docs/COMPATIBILITY.md) for the pinned
-plugin/profile pairing.
+The `0.2.2-beta.1` release is qualified for Xcode 27 Beta 5 and macOS 15 or
+later.
 
-## Package shape
+## Install
 
-The self-contained maintenance package contains:
+1. Quit Xcode.
+2. Download and open the DMG.
+3. Open `AppleAppDevXcodeHeadlessInstaller.app`.
+4. Choose **Install**.
+5. Choose **Review Hooks**, inspect both lifecycle hooks, and trust them.
+6. If prompted, trust only the installer’s dedicated onboarding workspace.
+7. Reopen Xcode and start a fresh CodingAssistant conversation.
 
-- a Developer ID signed installer app
-- a rendered and validated `xcode-headless` plugin profile
-- a signed Node.js LTS executable and license used only by the two lifecycle
-  hooks
-- no replacement Codex agent
-- no bundled MCP proxy
-- no plugin-managed MCP servers
+The installer creates a rollback backup before replacing the profile and leaves
+Xcode’s active Codex agent unchanged.
 
-The companion deliberately does not install or update XcodeBuildMCP, Sosumi,
-or a Memory MCP. Ordinary Codex hosts obtain the first two from the Marketplace
-plugin, while Xcode CodingAssistant retains Xcode's native `xcode-tools`
-ownership. Memory continuity remains owned by each Codex home and is never
-rewritten by this installer.
+## What it installs
 
-The installer validates the embedded profile, refuses symbolic-link payloads,
-backs up the prior profile and Xcode Codex config, enables the public
-marketplace identity, disables conflicting identities without deleting their
-caches, runs `UserPromptSubmit` and `Stop` under Xcode's sanitized `PATH`
-before config activation, presents a native double-click installation flow with
-a copyable validated restore path, offers a primary **Review Hooks** action
-that opens Xcode's stock Codex review as Terminal's foreground job inside a
-dedicated empty onboarding workspace, and leaves
-`Agents/XcodeVersions/<build>/codex` unchanged.
+- The Apple AppDev Workflow hook-native profile
+- An embedded official Node.js runtime used only by the two lifecycle hooks
+- A transactional rollback path for the previous profile and configuration
 
-Lifecycle-hook trust remains an explicit user decision. The installer does not
-pre-trust the embedded `UserPromptSubmit` routing hook or `Stop` contract
-guard. The self-contained commands differ from public companion `v0.2.0`, so
-both require explicit review after the maintenance install. The installer
-launches the stock review surface but never writes `hooks.state`; command and
-source approval remains the user's decision. A one-time workspace-trust prompt,
-when needed, applies only to that onboarding directory rather than the user's
-home or project directories. The exact procedure is documented in the
-[installer guide](tools/xcode-headless-installer/README.md#review-and-trust-the-hooks).
+## What it does not change
 
-## Development
+- It does not replace or activate Xcode’s Codex agent.
+- It does not install or configure MCP servers.
+- It does not modify the ordinary Codex Desktop or CLI home.
+- It does not delete `LocalAppleWorkflow` caches.
+- It does not replace Xcode’s native `xcode-tools` integration.
 
-Run the focused installer tests:
+## Trust and troubleshooting
 
-```bash
-python3 -m unittest scripts.test_xcode_headless_installer
-```
+Automatic routing requires both lifecycle hooks to be trusted. If routing is
+missing, open the stock Codex hook browser, confirm that
+`apple-appdev-workflow@apple-developer-tools` is enabled, and start a fresh
+conversation.
 
-Inspect a package plan with a rendered profile:
+If the installer reports that Xcode is running, quit Xcode completely and retry.
+The installer prints the exact rollback path after a successful replacement.
 
-```bash
-tools/xcode-headless-installer/scripts/fetch_hook_runtime.sh \
-  --output-dir /tmp/apple-appdev-hook-runtime-v24.19.0
+## Support and license
 
-tools/xcode-headless-installer/scripts/package_dmg.sh \
-  --plugin-profile /path/to/rendered/xcode-headless \
-  --plugin-version 0.2.2-beta.1 \
-  --version 0.2.2-beta.1 \
-  --build 1 \
-  --hook-runtime /tmp/apple-appdev-hook-runtime-v24.19.0/node \
-  --hook-runtime-license /tmp/apple-appdev-hook-runtime-v24.19.0/LICENSE \
-  --output-dir /tmp/apple-appdev-xcode-companion \
-  --dry-run
-```
-
-Public packaging requires Developer ID signing, notarization, stapling,
-Gatekeeper acceptance, and a fresh live Xcode smoke against the exact final
-DMG.
+Report issues at
+[GitHub Issues](https://github.com/jkaunert/apple-appdev-xcode-companion/issues).
+Licensed under the [Apache License 2.0](LICENSE).
