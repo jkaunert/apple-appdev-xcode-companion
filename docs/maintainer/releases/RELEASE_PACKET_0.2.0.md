@@ -25,7 +25,7 @@ The published release contains these three files from the qualified build
 directory:
 
 ```text
-/Users/joshuakaunert/Developer/apple-appdev-xcode-companion/build/releases/macos15-deployment-fix-b176905-d8f83d1/
+<private-local-path>shuakaunert/Developer/apple-appdev-xcode-companion/build/releases/macos15-deployment-fix-b176905-d8f83d1/
 ```
 
 ```text

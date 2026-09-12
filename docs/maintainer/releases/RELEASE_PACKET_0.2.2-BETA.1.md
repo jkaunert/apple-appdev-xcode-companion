@@ -51,7 +51,7 @@ signed embedded Node SHA-256: b2eb13d6bcd6b83928d24b80155795bb8a38eeab5950507a90
 The DMG is Developer ID signed, notarized (Accepted), stapled, and
 Gatekeeper-accepted. It passed transactional package validation, preserved the
 active Xcode agent, and created rollback backup
-`/Users/joshuakaunert/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.2-beta.1-plugin-install-20260912T013937Z`.
+`<private-local-path>shuakaunert/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.2-beta.1-plugin-install-20260912T013937Z`.
 
 ## Fresh exact-package Xcode evidence
 

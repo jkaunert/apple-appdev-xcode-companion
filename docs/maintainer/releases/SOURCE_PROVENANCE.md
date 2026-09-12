@@ -39,7 +39,7 @@ The package was signed with Developer ID `Joshua Kaunert (HSRQC9N69B)`,
 notarization was Accepted, the DMG was stapled and Gatekeeper-accepted, and
 the transactional install preserved Xcode's active agent. The fresh exact-
 package Xcode matrix report is retained at
-`/Users/joshuakaunert/.codex-fork/quarantine/public-beta-0.2.2-beta.1-20260911/xcode/final-v4-20260912/xcode-parity-report-27A5237l-beta1.json`.
+`<private-local-path>shuakaunert/.codex-fork/quarantine/public-beta-0.2.2-beta.1-20260911/xcode/final-v4-20260912/xcode-parity-report-27A5237l-beta1.json`.
 
 ```text
 matrix manifest SHA-256: 88b44acbeef01862a01f3bb5acab6a1db5821a05632d80c4775c384963e6266f

@@ -26,7 +26,7 @@ signed embedded Node SHA-256: b2eb13d6bcd6b83928d24b80155795bb8a38eeab5950507a90
 The exact package passed Developer ID signing, stapling, Gatekeeper, and the
 transactional profile-validation install. It preserved Xcode's active signed
 agent, left `LocalAppleWorkflow` caches intact, and created rollback backup
-`/Users/joshuakaunert/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.2-beta.1-plugin-install-20260912T013937Z`.
+`<private-local-path>shuakaunert/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.2-beta.1-plugin-install-20260912T013937Z`.
 
 After reopening Xcode 27 Beta 5 build `27A5237l`, the exact installed package
 passed the contract-v3 11-case matrix:
@@ -116,7 +116,7 @@ published.
 The exact host-install rollback snapshot is:
 
 ```text
-/Users/joshuakaunert/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.0-plugin-install-20260731T004634Z
+<private-local-path>shuakaunert/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.0-plugin-install-20260731T004634Z
 ```
 
 ## macOS 15 Gate
@@ -142,7 +142,7 @@ The VM's installed profile was byte-identical to the DMG's embedded profile,
 the intended plugin identity was enabled, and the rollback snapshot was:
 
 ```text
-/Users/admin/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.0-plugin-install-20260731T004508Z
+<private-local-path>ssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.0-plugin-install-20260731T004508Z
 ```
 
 The VM clone was shut down cleanly and retained for reproducibility.
@@ -222,12 +222,12 @@ build-4 install:
 
 ```text
 marker: XCODE-BUILD4-NATURAL-RELEASE-SMOKE-20260730-1949
-Xcode conversation: 8CE2A9C1-6E66-4EFD-A7DE-31400D5240BF
+Xcode conversation: <redacted-session-id>
 Xcode conversation SHA-256: 02340ea92eee3949b17c26981189937c218a5f11c54e9c9b756f98709d47e63c
-Codex session: 019fb5a6-85a8-7bd1-9c96-98738df510e7
+Codex session: <redacted-session-id>
 Codex session SHA-256: 6300453d301e4ee6123e1f02b2798988e5e00b92c8c431f63e20f8f8c6da7d78
-app-server PID: 90572
-app-server parent Xcode PID: 77992
+app-server PID: <redacted-pid>
+app-server parent Xcode PID: <redacted-pid>
 ```
 
 `UserPromptSubmit` injected
