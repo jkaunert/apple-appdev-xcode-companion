@@ -9,8 +9,8 @@ distribution.
 
 ## Download
 
-Download the current prerelease from the
-[GitHub releases page](https://github.com/jkaunert/apple-appdev-xcode-companion/releases).
+Download [v0.2.2-beta.2](https://github.com/jkaunert/apple-appdev-xcode-companion/releases/tag/v0.2.2-beta.2)
+from the GitHub releases page.
 
 The `0.2.2-beta.2` release is qualified for Xcode 27 Beta 5 and macOS 15 or
 later.
