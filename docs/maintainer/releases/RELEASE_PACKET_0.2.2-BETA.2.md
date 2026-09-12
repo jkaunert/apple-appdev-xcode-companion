@@ -48,6 +48,10 @@ cases: 11/11
 
 ## Distribution
 
-The signed prerelease will be published at:
+The signed prerelease is published at:
 
 <https://github.com/jkaunert/apple-appdev-xcode-companion/releases/tag/v0.2.2-beta.2>
+
+The public plugin counterpart is
+[`v0.2.2-beta.2`](https://github.com/jkaunert/apple-appdev-workflow/releases/tag/v0.2.2-beta.2).
+The companion release tag targets merged source `729cbdd28b2db92f7a558caa09665195292f80d3`.
