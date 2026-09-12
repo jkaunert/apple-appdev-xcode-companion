@@ -2,43 +2,36 @@
 
 ## Companion 0.2.2-beta.1 release train
 
-This branch prepares the hook-only companion beta paired with the private
-Apple AppDev Workflow `0.2.2-beta.1` Marketplace source. The final package
-must embed an `xcode-headless` profile rendered from the exact merged private
-`main` SHA, then rewrite only the two lifecycle-hook commands to the pinned
-official Node.js LTS runtime. It must not bundle XcodeBuildMCP, Sosumi, Memory
-MCP, or the private plugin repository history.
+This branch prepares the hook-only companion beta paired with the qualified
+private Apple AppDev Workflow `0.2.2-beta.1` Marketplace source. The final
+package embeds an `xcode-headless` profile rendered from private `main` at
+`722fda0943993fe2506e3a32dd6b12bbd1c92511` (release-evidence merge
+`7fd1ae9a14f38aafa208708b604b6d1f43383b8b`), then rewrites only the two
+lifecycle-hook commands to the pinned official Node.js LTS runtime. It does
+not bundle XcodeBuildMCP, Sosumi, Memory MCP, or private plugin history.
 
-The beta source commit, rendered-profile hashes, Node archive/executable and
-license hashes, DMG checksum, notarization submission, and fresh Xcode Beta 5
-matrix report will be added here after packaging. Historical `0.2.0` and
-`0.2.1` records below remain immutable and cannot qualify this changed payload.
+The final package source commit, rendered-profile hashes, Node archive/executable
+and license hashes, DMG checksum, accepted notarization submission, and fresh
+Xcode Beta 5 matrix report are recorded below after the package build. Historical
+`0.2.0` and `0.2.1` records remain immutable and cannot qualify this payload.
 
-### Candidate package built from the release-train topics
-
-The superseded first candidate was built from companion commit
-`9e521241edf88afb0909dbcc5c40117ea8c3f8c2`. After the routing-core hash fix,
-the current signed beta candidate was rebuilt from companion commit
-`e7206289915fdb8c5bbde6a9167d91987a2f994e` and a rendered profile from plugin
-topic commit `048d4d4c43a13eaad1465a4d7c7248f4d4a91a18`. It is still a candidate
-only; the publication package must be rebuilt after the plugin topic is merged
-to private `main`.
+### Final beta package (pending build)
 
 ```text
 app version: 0.2.2-beta.1
 app build: 1
-DMG: AppleAppDevXcodeHeadlessInstaller-0.2.2-beta.1.dmg
-DMG SHA-256: e514b3f649dd4e02a20c25793f5abf100e80170808525ceb481b7c2ed776a8e1
-sidecar SHA-256: 3164b9e65bad6b5c75a0133783f4dd1c370ef1dbed51e08d56e7eb19a1e7af03
-notarization submission: a21cbeab-1b03-4573-8b3b-1e2c0e48d2f4
+companion source commit: pending provenance commit
+DMG SHA-256: pending final package build
+sidecar SHA-256: pending final package build
+notarization submission: pending final package build
 plugin version: 0.2.2-beta.1
 plugin manifest SHA-256: 4ea72ae864c4cf5223af791e9ea238ed758458c267f6ec7dfc48f37c7cfb2aee
-source routing core SHA-256: 43e1b81e86ee367f971dba8d26b35260c0f4d1b0576295bed1960cd30d3fcf0f
-embedded routing core SHA-256: f28533e2bf24bb986651910eb714e6531cfd1ee77e0a6b5e8e66f201e686d382
+source routing core SHA-256: 946367e5d475a041742b53e5557deb1817296ca524ecd4e17eb4622ab0f23992
+embedded routing core SHA-256: 907e3670eba9bb53881f18a6ef4029b66e09491de1cbdf65e6e752446363b02c
 Node runtime: v24.19.0
 Node executable SHA-256: 27db838bb204ef7c21df2931f5656e4c8fb32e6e947f363a402b49714d32b5b1
 Node license SHA-256: 148eacf7863ef4329224a29398623077200a27194aa075569faf4a0a85566ca5
-signed embedded Node SHA-256: 17515fb6fd1bb1dae5b3f502feea24405af6024ebceaf4450c496d65c86b5ab9
+signed embedded Node SHA-256: a17a91b02153bbd5a01439c81b809778a4b96ecfed25451f354cde7140fcc763
 ```
 
 ## Initial extraction

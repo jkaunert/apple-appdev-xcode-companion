@@ -1,9 +1,11 @@
 # Apple AppDev Xcode Companion 0.2.2-beta.1 Release Packet
 
-Status: release train in progress; this packet is not a publication claim.
+Status: beta package qualification in progress; this packet is not a publication claim.
 
 The beta is paired with Marketplace plugin `apple-appdev-workflow`
-`0.2.2-beta.1` from the exact merged private `main` source SHA. The companion
+`0.2.2-beta.1` from the qualified private `main` source commit
+`722fda0943993fe2506e3a32dd6b12bbd1c92511` (release-evidence merge
+`7fd1ae9a14f38aafa208708b604b6d1f43383b8b`). The companion
 is intentionally hook-only: it installs the `xcode-headless` profile, embeds
 the pinned official Node.js LTS runtime for lifecycle hooks, preserves Xcode's
 active Codex agent and rollback path, and does not register or provision
@@ -25,20 +27,21 @@ The immutable package manifest and notary result are added beside this packet
 only after the final package is built. Historical `v0.2.0` and `v0.2.1` assets
 remain separate evidence and cannot qualify this changed beta payload.
 
-## Candidate package evidence
+## Final package evidence
 
-The current candidate package was rebuilt from companion commit
-`e7206289915fdb8c5bbde6a9167d91987a2f994e` with a profile rendered from plugin
-topic commit `048d4d4c43a13eaad1465a4d7c7248f4d4a91a18`:
+The final signed package will be rebuilt from the clean companion source commit
+recorded below after this provenance update, with a profile rendered from the
+qualified private plugin source above. The package sidecar and accepted notary
+result are the authoritative artifact records and will be attached here after
+the build.
 
 ```text
-DMG SHA-256: e514b3f649dd4e02a20c25793f5abf100e80170808525ceb481b7c2ed776a8e1
-sidecar SHA-256: 3164b9e65bad6b5c75a0133783f4dd1c370ef1dbed51e08d56e7eb19a1e7af03
-notarization submission: a21cbeab-1b03-4573-8b3b-1e2c0e48d2f4
+DMG SHA-256: pending final package build
+sidecar SHA-256: pending final package build
+notarization submission: pending final package build
 Node runtime: v24.19.0
 ```
 
-This candidate passed signing, notarization, stapling, Gatekeeper, and the
-transactional package-validation install. It remains non-publishable until
-fresh Xcode trust and matrix evidence pass and the package is rebuilt from the
-exact merged private plugin source.
+The package is not publishable until signing, notarization, stapling,
+Gatekeeper, transactional installation, and fresh exact-package Xcode trust
+and matrix evidence are all recorded.
