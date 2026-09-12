@@ -32,12 +32,13 @@ FETCH_HOOK_RUNTIME_SCRIPT = (
     / "fetch_hook_runtime.sh"
 )
 PLUGIN_NAME = "apple-appdev-workflow"
-PLUGIN_VERSION = "0.2.1"
+PLUGIN_VERSION = "0.2.2-beta.1"
 PLUGIN_SOURCE = "apple-developer-tools"
 LOCAL_PLUGIN_SOURCE = "LocalAppleWorkflow"
-APP_VERSION = "0.2.1"
-APP_BUILD = "2"
+APP_VERSION = "0.2.2-beta.1"
+APP_BUILD = "1"
 REQUIRED_PROFILE_FILES = (
+    "hooks/apple_hook.py",
     "hooks/apple_router.mjs",
     "hooks/apple_contract_guard.mjs",
     "routing/router-policy.json",
@@ -597,6 +598,18 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             self.assertIn("must omit mcpServers", result.stderr)
             self.assertFalse(self.target(xcode_home).exists())
 
+    def test_companion_does_not_bundle_or_install_xcodebuildmcp(self) -> None:
+        source = SOURCE.read_text().lower()
+        package_script = PACKAGE_SCRIPT.read_text().lower()
+
+        for forbidden in (
+            "xcodebuildmcp",
+            "--install-xcodebuildmcp-runtime",
+            "--xcodebuildmcp-runtime",
+        ):
+            self.assertNotIn(forbidden, source)
+            self.assertNotIn(forbidden, package_script)
+
     def test_plugin_profile_rejects_external_node_hook_commands(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -760,6 +773,8 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
                     PLUGIN_VERSION,
                     "--version",
                     APP_VERSION,
+                    "--build",
+                    APP_BUILD,
                     "--output-dir",
                     str(output_dir),
                     *hook_arguments,
@@ -784,11 +799,11 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             self.assertNotIn("copy runtime payload", result.stdout)
             self.assertIn("embed self-contained hook runtime", result.stdout)
             self.assertIn(
-                "AppleAppDevXcodeHeadlessInstaller-0.2.1.dmg",
+                "AppleAppDevXcodeHeadlessInstaller-0.2.2-beta.1.dmg",
                 result.stdout,
             )
             self.assertNotIn(
-                "AppleAppDevXcodeHeadlessInstaller-0.2.0.dmg",
+                "AppleAppDevXcodeHeadlessInstaller-0.2.1.dmg",
                 result.stdout,
             )
             self.assertFalse(output_dir.exists())

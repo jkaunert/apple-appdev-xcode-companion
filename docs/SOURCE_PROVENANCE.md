@@ -1,5 +1,54 @@
 # Source Provenance
 
+## Companion 0.2.2-beta.1 release train
+
+This branch prepares the hook-only companion beta paired with the qualified
+private Apple AppDev Workflow `0.2.2-beta.1` Marketplace source. The final
+package embeds an `xcode-headless` profile rendered from private `main` at
+`722fda0943993fe2506e3a32dd6b12bbd1c92511` (release-evidence merge
+`7fd1ae9a14f38aafa208708b604b6d1f43383b8b`), then rewrites only the two
+lifecycle-hook commands to the pinned official Node.js LTS runtime. It does
+not bundle XcodeBuildMCP, Sosumi, Memory MCP, or private plugin history.
+
+The final package source commit, rendered-profile hashes, Node archive/executable
+and license hashes, DMG checksum, accepted notarization submission, and fresh
+Xcode Beta 5 matrix report are recorded below. Historical `0.2.0` and `0.2.1`
+records remain immutable and cannot qualify this payload.
+
+### Final beta package
+
+```text
+app version: 0.2.2-beta.1
+app build: 1
+companion source commit: ff4dfe20c4707eb3fc794f14cb2f0620bbba271b
+DMG SHA-256: d372c87184cbcbe409dbcb60e9398863fd51eeba1e7d989b4048c6016810c8f5
+sidecar SHA-256: b91dce1beb84634f5308f45a2ede2326e9cf0197fa4d528081a906e35f4148b6
+notary result SHA-256: dc1d8bded147c4ab47fd045f88e0a56bbdaa63729cdcfc8bccfb5cf09c26219a
+notarization submission: 96167d46-f990-48e3-944b-bf0669718336
+plugin version: 0.2.2-beta.1
+plugin manifest SHA-256: 4ea72ae864c4cf5223af791e9ea238ed758458c267f6ec7dfc48f37c7cfb2aee
+source routing core SHA-256: 946367e5d475a041742b53e5557deb1817296ca524ecd4e17eb4622ab0f23992
+embedded routing core SHA-256: 723e3774ff854808dcdd60ed5a4adf3be40fd356935fef4f7c31207df4c47588
+Node runtime: v24.19.0
+Node executable SHA-256: 27db838bb204ef7c21df2931f5656e4c8fb32e6e947f363a402b49714d32b5b1
+Node license SHA-256: 148eacf7863ef4329224a29398623077200a27194aa075569faf4a0a85566ca5
+signed embedded Node SHA-256: b2eb13d6bcd6b83928d24b80155795bb8a38eeab5950507a908bf6bea3916f63
+```
+
+The package was signed with Developer ID `Joshua Kaunert (HSRQC9N69B)`,
+notarization was Accepted, the DMG was stapled and Gatekeeper-accepted, and
+the transactional install preserved Xcode's active agent. The fresh exact-
+package Xcode matrix report is retained at
+`/Users/joshuakaunert/.codex-fork/quarantine/public-beta-0.2.2-beta.1-20260911/xcode/final-v4-20260912/xcode-parity-report-27A5237l-beta1.json`.
+
+```text
+matrix manifest SHA-256: 88b44acbeef01862a01f3bb5acab6a1db5821a05632d80c4775c384963e6266f
+matrix report SHA-256: e3b4ab940c904e974d88ae8adc364f5eddef923c6572f0bbdb81f8a108f3d729
+result: pass
+xcode gate: passed
+cases: 11/11
+```
+
 ## Initial extraction
 
 The initial companion source was mechanically extracted from the private Apple
