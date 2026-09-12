@@ -1,5 +1,47 @@
 # Release Qualification
 
+## Apple AppDev Xcode Companion 0.2.2-beta.1
+
+The qualified beta companion is:
+
+```text
+version: 0.2.2-beta.1
+app build: 1
+minimum macOS: 15.0
+companion source commit: ff4dfe20c4707eb3fc794f14cb2f0620bbba271b
+plugin source commit: 722fda0943993fe2506e3a32dd6b12bbd1c92511
+DMG: AppleAppDevXcodeHeadlessInstaller-0.2.2-beta.1.dmg
+DMG SHA-256: d372c87184cbcbe409dbcb60e9398863fd51eeba1e7d989b4048c6016810c8f5
+sidecar SHA-256: b91dce1beb84634f5308f45a2ede2326e9cf0197fa4d528081a906e35f4148b6
+installer executable SHA-256: af5ce9be04be5761dc83df787c804939f306a6c8758316951883fbae8b3be65e
+Developer ID: Joshua Kaunert (HSRQC9N69B)
+notary submission: 96167d46-f990-48e3-944b-bf0669718336
+notary status: Accepted
+plugin manifest SHA-256: 4ea72ae864c4cf5223af791e9ea238ed758458c267f6ec7dfc48f37c7cfb2aee
+source routing core SHA-256: 946367e5d475a041742b53e5557deb1817296ca524ecd4e17eb4622ab0f23992
+embedded routing core SHA-256: 723e3774ff854808dcdd60ed5a4adf3be40fd356935fef4f7c31207df4c47588
+signed embedded Node SHA-256: b2eb13d6bcd6b83928d24b80155795bb8a38eeab5950507a908bf6bea3916f63
+```
+
+The exact package passed Developer ID signing, stapling, Gatekeeper, and the
+transactional profile-validation install. It preserved Xcode's active signed
+agent, left `LocalAppleWorkflow` caches intact, and created rollback backup
+`/Users/joshuakaunert/Library/Developer/Xcode/CodingAssistant/codex/.tmp/plugins/quarantine/apple-appdev-workflow/0.2.2-beta.1-plugin-install-20260912T013937Z`.
+
+After reopening Xcode 27 Beta 5 build `27A5237l`, the exact installed package
+passed the contract-v3 11-case matrix:
+
+```text
+matrix manifest SHA-256: 88b44acbeef01862a01f3bb5acab6a1db5821a05632d80c4775c384963e6266f
+matrix report SHA-256: e3b4ab940c904e974d88ae8adc364f5eddef923c6572f0bbdb81f8a108f3d729
+result: pass
+xcode gate: passed
+cases: 11/11
+```
+
+The separate public Marketplace plugin is paired at `v0.2.2-beta.1`; this
+companion remains a hook-only Xcode distribution and does not own MCP servers.
+
 ## Candidate
 
 The published dual-hook release is:
