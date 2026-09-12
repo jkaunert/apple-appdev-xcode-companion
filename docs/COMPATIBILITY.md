@@ -1,6 +1,6 @@
 # Compatibility
 
-The current `0.2.2-beta.1` companion is qualified for:
+The current `0.2.2-beta.2` companion is qualified for:
 
 - macOS 15 or later
 - Xcode 27 Beta 5 (`27A5237l`)

@@ -26,7 +26,7 @@ Render and validate the Xcode-specific profile first:
 ```bash
 python3 scripts/render_plugin_manifest_profile.py \
   --repo-root . \
-  --output-dir /tmp/apple-appdev-xcode-headless-0.2.2-beta.1 \
+  --output-dir /tmp/apple-appdev-xcode-headless-0.2.2-beta.2 \
   --profile xcode-headless \
   --validate
 ```
@@ -48,9 +48,9 @@ Inspect the package plan without creating an app or DMG:
 
 ```bash
 tools/xcode-headless-installer/scripts/package_dmg.sh \
-  --plugin-profile /tmp/apple-appdev-xcode-headless-0.2.2-beta.1 \
-  --plugin-version 0.2.2-beta.1 \
-  --version 0.2.2-beta.1 \
+  --plugin-profile /tmp/apple-appdev-xcode-headless-0.2.2-beta.2 \
+  --plugin-version 0.2.2-beta.2 \
+  --version 0.2.2-beta.2 \
   --build 1 \
   --hook-runtime /tmp/apple-appdev-hook-runtime-v24.19.0/node \
   --hook-runtime-license /tmp/apple-appdev-hook-runtime-v24.19.0/LICENSE \
@@ -64,9 +64,9 @@ the same package run:
 ```bash
 APPLE_APPDEV_WORKFLOW_CODESIGN_IDENTITY="Developer ID Application: Example Team (TEAMID1234)" \
 tools/xcode-headless-installer/scripts/package_dmg.sh \
-  --plugin-profile /tmp/apple-appdev-xcode-headless-0.2.2-beta.1 \
-  --plugin-version 0.2.2-beta.1 \
-  --version 0.2.2-beta.1 \
+  --plugin-profile /tmp/apple-appdev-xcode-headless-0.2.2-beta.2 \
+  --plugin-version 0.2.2-beta.2 \
+  --version 0.2.2-beta.2 \
   --build 1 \
   --hook-runtime /tmp/apple-appdev-hook-runtime-v24.19.0/node \
   --hook-runtime-license /tmp/apple-appdev-hook-runtime-v24.19.0/LICENSE \

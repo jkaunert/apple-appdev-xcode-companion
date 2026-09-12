@@ -32,10 +32,10 @@ FETCH_HOOK_RUNTIME_SCRIPT = (
     / "fetch_hook_runtime.sh"
 )
 PLUGIN_NAME = "apple-appdev-workflow"
-PLUGIN_VERSION = "0.2.2-beta.1"
+PLUGIN_VERSION = "0.2.2-beta.2"
 PLUGIN_SOURCE = "apple-developer-tools"
 LOCAL_PLUGIN_SOURCE = "LocalAppleWorkflow"
-APP_VERSION = "0.2.2-beta.1"
+APP_VERSION = "0.2.2-beta.2"
 APP_BUILD = "1"
 REQUIRED_PROFILE_FILES = (
     "hooks/apple_hook.py",
@@ -799,7 +799,7 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             self.assertNotIn("copy runtime payload", result.stdout)
             self.assertIn("embed self-contained hook runtime", result.stdout)
             self.assertIn(
-                "AppleAppDevXcodeHeadlessInstaller-0.2.2-beta.1.dmg",
+                "AppleAppDevXcodeHeadlessInstaller-0.2.2-beta.2.dmg",
                 result.stdout,
             )
             self.assertNotIn(
