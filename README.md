@@ -10,7 +10,12 @@ CodingAssistant Codex home without changing Xcode's active Codex agent.
 
 ## Current status
 
-- public companion release: [`v0.2.0`](https://github.com/jkaunert/apple-appdev-xcode-companion/releases/tag/v0.2.0)
+- stable companion release candidate: `v0.2.2` (app build `3`)
+- qualification scope: Xcode `27.0` RC (`27A266a`) and Xcode `26.6` (`17F113`)
+- bundled Xcode agents: Codex `0.145.0` and `0.140.0`, respectively
+- the stable tag and signed/notarized DMG are published only after the exact
+  source, package, and two-host qualification records below are complete
+- historical public companion release: [`v0.2.0`](https://github.com/jkaunert/apple-appdev-xcode-companion/releases/tag/v0.2.0)
 - source imported from private Apple AppDev Workflow commit
   `c30409e917a5bcdb02010c0b78b4971c2b3fa42a`
 - embedded dual-hook profile pinned to private Apple AppDev Workflow commit
@@ -98,8 +103,8 @@ tools/xcode-headless-installer/scripts/fetch_hook_runtime.sh \
 
 tools/xcode-headless-installer/scripts/package_dmg.sh \
   --plugin-profile /path/to/rendered/xcode-headless \
-  --plugin-version 0.2.1 \
-  --version 0.2.1 \
+  --plugin-version 0.2.2 \
+  --version 0.2.2 \
   --build 3 \
   --hook-runtime /tmp/apple-appdev-hook-runtime-v24.19.0/node \
   --hook-runtime-license /tmp/apple-appdev-hook-runtime-v24.19.0/LICENSE \
