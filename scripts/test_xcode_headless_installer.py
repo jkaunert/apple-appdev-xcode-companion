@@ -32,12 +32,13 @@ FETCH_HOOK_RUNTIME_SCRIPT = (
     / "fetch_hook_runtime.sh"
 )
 PLUGIN_NAME = "apple-appdev-workflow"
-PLUGIN_VERSION = "0.2.1"
+PLUGIN_VERSION = "0.2.2"
 PLUGIN_SOURCE = "apple-developer-tools"
 LOCAL_PLUGIN_SOURCE = "LocalAppleWorkflow"
-APP_VERSION = "0.2.1"
-APP_BUILD = "2"
+APP_VERSION = "0.2.2"
+APP_BUILD = "3"
 REQUIRED_PROFILE_FILES = (
+    "hooks/apple_hook.py",
     "hooks/apple_router.mjs",
     "hooks/apple_contract_guard.mjs",
     "routing/router-policy.json",
@@ -772,6 +773,8 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
                     PLUGIN_VERSION,
                     "--version",
                     APP_VERSION,
+                    "--build",
+                    APP_BUILD,
                     "--output-dir",
                     str(output_dir),
                     *hook_arguments,
@@ -796,13 +799,10 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             self.assertNotIn("copy runtime payload", result.stdout)
             self.assertIn("embed self-contained hook runtime", result.stdout)
             self.assertIn(
-                "AppleAppDevXcodeHeadlessInstaller-0.2.1.dmg",
+                "AppleAppDevXcodeHeadlessInstaller-0.2.2.dmg",
                 result.stdout,
             )
-            self.assertNotIn(
-                "AppleAppDevXcodeHeadlessInstaller-0.2.0.dmg",
-                result.stdout,
-            )
+            self.assertNotIn("AppleAppDevXcodeHeadlessInstaller-0.2.1.dmg", result.stdout)
             self.assertFalse(output_dir.exists())
 
     def test_hook_runtime_fetch_dry_run_is_pinned_and_non_mutating(self) -> None:
