@@ -137,6 +137,7 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
             "    case \"$INPUT\" in\n"
             "      *'\"stop_hook_active\":true'*) exit 0 ;;\n"
             "    esac\n"
+            "    if [ \"${APPLE_APPDEV_FINAL_OUTPUT_GUARD_MODE:-}\" != \"strict\" ]; then exit 0; fi\n"
             "    printf '%s\\n' '{\"decision\":\"block\",\"reason\":\"Apple workflow final-output contract failed: fixture\"}'\n"
             "    ;;\n"
             "  *) exit 1 ;;\n"
@@ -481,7 +482,7 @@ class XcodeHeadlessInstallerTests(unittest.TestCase):
                 install_result.stdout,
             )
             self.assertIn(
-                "hook postflight passed under sanitized PATH: Stop one-retry guard",
+                "hook postflight passed under sanitized PATH: Stop strict one-retry guard",
                 install_result.stdout,
             )
             installed_config = config.read_text()
