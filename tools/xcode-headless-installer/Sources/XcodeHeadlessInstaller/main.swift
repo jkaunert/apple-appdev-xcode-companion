@@ -818,7 +818,12 @@ func postflightPluginHooks(at profile: URL, xcodeCodexHome: URL) throws {
     }
     describe("hook postflight passed under sanitized PATH: UserPromptSubmit")
 
-    let stopResult = try runHookProcess(
+    // Public profiles deliberately fail open after validating a final answer.
+    // An empty stdout response is the successful diagnostic contract, not a
+    // malformed hook result. Re-run the router below before testing the
+    // qualification-only strict path because the diagnostic guard consumes its
+    // route state.
+    let diagnosticStopResult = try runHookProcess(
         executable: runtime,
         script: guardScript,
         input: [
@@ -830,13 +835,51 @@ func postflightPluginHooks(at profile: URL, xcodeCodexHome: URL) throws {
         ],
         environment: environment
     )
-    let stopOutput = try hookJSONOutput(stopResult, label: "Stop")
+    guard diagnosticStopResult.status == 0,
+          diagnosticStopResult.stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else {
+        throw InstallerError(description: "Stop hook postflight interrupted diagnostic mode")
+    }
+    describe("hook postflight passed under sanitized PATH: Stop diagnostic mode")
+
+    _ = try hookJSONOutput(
+        try runHookProcess(
+            executable: runtime,
+            script: router,
+            input: [
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": "Build an iOS app. INSTALLER-HOOK-POSTFLIGHT",
+                "cwd": canonicalProfile.path,
+                "session_id": identifier,
+                "turn_id": "user-prompt-submit",
+            ],
+            environment: environment
+        ),
+        label: "UserPromptSubmit strict qualification"
+    )
+    var strictEnvironment = environment
+    strictEnvironment["APPLE_APPDEV_FINAL_OUTPUT_GUARD_MODE"] = "strict"
+    let stopOutput = try hookJSONOutput(
+        try runHookProcess(
+            executable: runtime,
+            script: guardScript,
+            input: [
+                "hook_event_name": "Stop",
+                "session_id": identifier,
+                "turn_id": "user-prompt-submit",
+                "stop_hook_active": false,
+                "last_assistant_message": "Installer postflight intentionally omits the Apple final-output contract.",
+            ],
+            environment: strictEnvironment
+        ),
+        label: "Stop strict qualification"
+    )
     guard stopOutput["decision"] as? String == "block",
           (stopOutput["reason"] as? String)?.contains("Apple workflow final-output contract failed") == true
     else {
         throw InstallerError(description: "Stop hook postflight did not enforce one correction")
     }
-    describe("hook postflight passed under sanitized PATH: Stop")
+    describe("hook postflight passed under sanitized PATH: Stop strict qualification")
 
     let retryResult = try runHookProcess(
         executable: runtime,
@@ -848,14 +891,14 @@ func postflightPluginHooks(at profile: URL, xcodeCodexHome: URL) throws {
             "stop_hook_active": true,
             "last_assistant_message": "Installer postflight retry sentinel.",
         ],
-        environment: environment
+        environment: strictEnvironment
     )
     guard retryResult.status == 0,
           retryResult.stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     else {
         throw InstallerError(description: "Stop hook postflight attempted more than one correction")
     }
-    describe("hook postflight passed under sanitized PATH: Stop one-retry guard")
+    describe("hook postflight passed under sanitized PATH: Stop strict one-retry guard")
 }
 
 func uniquePath(_ path: URL) throws -> URL {
